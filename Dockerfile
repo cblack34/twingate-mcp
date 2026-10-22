@@ -32,7 +32,9 @@ LABEL org.opencontainers.image.title="twingate-mcp" \
       org.opencontainers.image.description="Read-only MCP server for the Twingate GraphQL Admin API" \
       org.opencontainers.image.licenses="MIT"
 
-RUN groupadd --system --gid 10001 app \
+# pip is unused at runtime and its vendored deps (urllib3, msgpack, ...) carry CVEs.
+RUN python -m pip uninstall --yes --quiet pip \
+ && groupadd --system --gid 10001 app \
  && useradd --system --uid 10001 --gid app --no-create-home --shell /usr/sbin/nologin app
 
 COPY --from=builder /app/.venv /app/.venv
