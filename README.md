@@ -24,11 +24,11 @@ cp .env.example .env   # then fill in TWINGATE_NETWORK and TWINGATE_API_KEY
 uv run twingate-mcp version
 ```
 
-`TWINGATE_NETWORK` is the subdomain only: for `acme.twingate.com` use `acme`.
+`TWINGATE_NETWORK` is everything before `.twingate.com`: for `acme.twingate.com` use `acme`; for a regional tenant such as `acme.us1.twingate.com` use `acme.us1`.
 
 | Variable | Default | Notes |
 |---|---|---|
-| `TWINGATE_NETWORK` | required | Subdomain only |
+| `TWINGATE_NETWORK` | required | Host before `.twingate.com`, e.g. `acme` or `acme.us1` |
 | `TWINGATE_API_KEY` | required | Read-only token recommended |
 | `TWINGATE_PAGE_SIZE` | `100` | 1–100 |
 | `TWINGATE_DEFAULT_LIMIT` | `100` | Items per tool call when `limit` is omitted |

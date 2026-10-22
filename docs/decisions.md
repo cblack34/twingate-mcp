@@ -33,3 +33,5 @@ Short ADR-style log. Newest last.
   `Resource.remote_network`, `Connector.remote_network`), which all come from the fake allowlist.
 - **`schema pull`** uses `graphql-core` (MIT, via `ariadne-codegen`) to turn introspection JSON into
   SDL, so it needs the dev dependency group, like `schema generate`.
+- **Regional tenants.** `TWINGATE_NETWORK` is the whole host prefix before `.twingate.com`, so regional
+  tenants set e.g. `acme.us1`. No separate region setting.
