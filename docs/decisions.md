@@ -53,3 +53,8 @@ Short ADR-style log. Newest last.
   it, and fails on fixable HIGH/CRITICAL findings from Trivy. All actions are pinned to commit SHAs.
   pip is removed from the runtime image because its vendored copies of urllib3 and msgpack carried
   fixable HIGH CVEs. The full Trivy report goes to code scanning as SARIF (the repo is public).
+- **Repo settings (solo maintainer).** `main` is protected by a ruleset: PR required with 0 approvals,
+  squash-only, linear history, signed commits, resolved conversations, and the `gates` and
+  `build-and-scan` checks passing (from GitHub Actions only). Force-push and deletion are blocked.
+  No bypass actors; edit the ruleset itself in an emergency. Actions must be pinned to SHAs.
+  Dependabot covers uv, Actions, Docker, and pre-commit.
