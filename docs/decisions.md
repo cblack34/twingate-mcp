@@ -52,4 +52,4 @@ Short ADR-style log. Newest last.
 - **Image workflow** (`.github/workflows/image.yml`) builds the image (no push yet), smoke-tests
   it, and fails on fixable HIGH/CRITICAL findings from Trivy. All actions are pinned to commit SHAs.
   pip is removed from the runtime image because its vendored copies of urllib3 and msgpack carried
-  fixable HIGH CVEs.
+  fixable HIGH CVEs. The full Trivy report goes to code scanning as SARIF (the repo is public).
