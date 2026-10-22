@@ -1,4 +1,5 @@
 import pytest
+import respx
 
 from twingate_mcp.settings import Settings
 
@@ -20,3 +21,9 @@ def settings() -> Settings:
             "max_limit": 4,
         },
     )
+
+
+@pytest.fixture(autouse=True)
+def no_real_http(respx_mock: respx.MockRouter) -> respx.MockRouter:
+    """Every test runs under respx: any unmocked httpx request fails instead of leaving the box."""
+    return respx_mock

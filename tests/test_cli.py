@@ -72,10 +72,12 @@ def test_call_rejects_malformed_arg(env: None) -> None:
     assert "key=value" in result.output
 
 
-def test_call_without_generated_client_explains(env: None) -> None:
+def test_call_surfaces_auth_error(env: None, no_real_http: respx.MockRouter) -> None:
+    no_real_http.post(URL).mock(return_value=httpx.Response(401))
     result = runner.invoke(app, ["call", "list_users"])
     assert result.exit_code == 1
-    assert "schema pull" in result.output
+    assert "Token invalid or lacks permission" in result.output
+    assert FAKE_ENV["TWINGATE_API_KEY"] not in result.output
 
 
 def test_schema_generate_requires_schema() -> None:
@@ -84,11 +86,10 @@ def test_schema_generate_requires_schema() -> None:
     assert "schema pull" in result.output
 
 
-@respx.mock
-def test_schema_pull_writes_sdl(env: None, tmp_path) -> None:
+def test_schema_pull_writes_sdl(env: None, tmp_path, no_real_http: respx.MockRouter) -> None:
     synthetic = build_schema("type Query { ping: String }")
     introspection = graphql_sync(synthetic, get_introspection_query())
-    route = respx.post(URL).mock(
+    route = no_real_http.post(URL).mock(
         return_value=httpx.Response(200, json={"data": introspection.data})
     )
     result = runner.invoke(app, ["schema", "pull"])
@@ -97,9 +98,8 @@ def test_schema_pull_writes_sdl(env: None, tmp_path) -> None:
     assert "ping: String" in (tmp_path / "schema/twingate.graphql").read_text()
 
 
-@respx.mock
-def test_schema_pull_401_is_clear(env: None) -> None:
-    respx.post(URL).mock(return_value=httpx.Response(401))
+def test_schema_pull_401_is_clear(env: None, no_real_http: respx.MockRouter) -> None:
+    no_real_http.post(URL).mock(return_value=httpx.Response(401))
     result = runner.invoke(app, ["schema", "pull"])
     assert result.exit_code == 1
     assert "Token invalid or lacks permission" in result.output

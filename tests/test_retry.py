@@ -24,9 +24,8 @@ async def post() -> httpx.Response:
         return response.raise_for_status()
 
 
-@respx.mock
-async def test_429_with_retry_after_then_success() -> None:
-    route = respx.post(URL).mock(
+async def test_429_with_retry_after_then_success(no_real_http: respx.MockRouter) -> None:
+    route = no_real_http.post(URL).mock(
         side_effect=[
             httpx.Response(429, headers={"Retry-After": "2"}),
             httpx.Response(200, json={"data": {}}),
@@ -37,25 +36,22 @@ async def test_429_with_retry_after_then_success() -> None:
     assert route.call_count == 2
 
 
-@respx.mock
-async def test_401_surfaces_clear_error_without_retry() -> None:
-    route = respx.post(URL).mock(return_value=httpx.Response(401))
+async def test_401_surfaces_clear_error_without_retry(no_real_http: respx.MockRouter) -> None:
+    route = no_real_http.post(URL).mock(return_value=httpx.Response(401))
     with pytest.raises(TwingateAuthError, match="Token invalid or lacks permission"):
         await with_retry(post, attempts=3, max_seconds=10)
     assert route.call_count == 1
 
 
-@respx.mock
-async def test_other_4xx_not_retried() -> None:
-    route = respx.post(URL).mock(return_value=httpx.Response(404))
+async def test_other_4xx_not_retried(no_real_http: respx.MockRouter) -> None:
+    route = no_real_http.post(URL).mock(return_value=httpx.Response(404))
     with pytest.raises(httpx.HTTPStatusError):
         await with_retry(post, attempts=3, max_seconds=10)
     assert route.call_count == 1
 
 
-@respx.mock
-async def test_transport_error_retried() -> None:
-    route = respx.post(URL).mock(
+async def test_transport_error_retried(no_real_http: respx.MockRouter) -> None:
+    route = no_real_http.post(URL).mock(
         side_effect=[httpx.ConnectError("boom"), httpx.Response(200, json={})]
     )
     assert (await with_retry(post, attempts=3, max_seconds=10)).status_code == 200
