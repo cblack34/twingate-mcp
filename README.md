@@ -1,1 +1,1 @@
-# datadog-mcp
+# twingate-mcp
