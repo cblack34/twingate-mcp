@@ -1,6 +1,6 @@
 query ListDevices($first: Int!, $after: String) {
   devices(first: $first, after: $after) {
     pageInfo { hasNextPage endCursor }
-    edges { node { id name osName isTrusted lastConnectedAt user { email } } }
+    edges { node { id name osName isTrusted lastSuccessfulLoginAt user { email } } }
   }
 }

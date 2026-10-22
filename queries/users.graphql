@@ -6,13 +6,13 @@ query ListUsers($first: Int!, $after: String) {
 }
 
 query GetUserByEmail($email: String!) {
-  users(first: 1, filter: { email: { eq: $email } }) {
+  users(first: 1, filter: { email: { ieq: $email } }) {
     edges { node { id email firstName lastName role state } }
   }
 }
 
 query GetUserAccess($email: String!, $first: Int!, $after: String) {
-  users(first: 1, filter: { email: { eq: $email } }) {
+  users(first: 1, filter: { email: { ieq: $email } }) {
     edges {
       node {
         email
