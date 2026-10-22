@@ -22,8 +22,8 @@ Short ADR-style log. Newest last.
   (`remoteNetworks`, `state`, `lastHeartbeatAt`, ...). Fix them after `schema generate` fails or
   succeeds against the real schema.
 - **`pytest-cov` (MIT) added** as a dev dependency; the §9 coverage command needs it.
-- **Retry total timeout** is `TWINGATE_TIMEOUT_SECONDS × TWINGATE_RETRY_ATTEMPTS`, since §10 has no
-  separate setting. 401/403 are not retried and become "Token invalid or lacks permission".
+- **Retry total timeout** will be `TWINGATE_TIMEOUT_SECONDS × TWINGATE_RETRY_ATTEMPTS` once `GraphQLTwingateReader` exists (§10 has no
+  separate setting). 401/403 are not retried and become "Token invalid or lacks permission".
 - **`get_user` not-found** returns `null` (MCP wraps it as `{"result": null}`).
 - **Allowed hosts.** Loopback binds allow `127.0.0.1`, `localhost`, and `[::1]` (any port). Other
   binds allow only the bind host itself, so bind a specific address rather than `0.0.0.0`.
