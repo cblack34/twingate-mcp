@@ -12,9 +12,9 @@ class Page[T](BaseModel):
 
 class User(BaseModel):
     id: str
-    email: str
-    first_name: str | None
-    last_name: str | None
+    email: str | None
+    first_name: str
+    last_name: str
     role: str
     state: str
 
@@ -53,8 +53,8 @@ class Connector(BaseModel):
 
 class Device(BaseModel):
     id: str
-    name: str
-    os_name: str
+    name: str | None
+    os_name: str | None
     user_email: str | None
     is_trusted: bool
     last_seen_at: datetime | None

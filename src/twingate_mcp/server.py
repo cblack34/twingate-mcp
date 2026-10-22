@@ -1,10 +1,11 @@
 import hmac
 import ipaddress
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from functools import cache
 from typing import Annotated
 
 from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 from pydantic import Field, SecretStr
@@ -25,11 +26,20 @@ from twingate_mcp.models import (
     UserAccess,
 )
 from twingate_mcp.reader import TwingateReader
+from twingate_mcp.retry import TwingateAuthError
 from twingate_mcp.settings import Settings
 
 Limit = Annotated[
     int | None, Field(ge=1, description="Maximum items to return (server default if omitted).")
 ]
+
+
+async def _surface[T](call: Awaitable[T]) -> T:
+    """Pass auth and not-found messages to the client; MCPServer hides other exception text."""
+    try:
+        return await call
+    except (TwingateAuthError, LookupError) as exc:
+        raise ToolError(str(exc)) from exc
 
 
 def build_server(settings: Settings, make_reader: Callable[[], TwingateReader]) -> MCPServer:
@@ -52,19 +62,19 @@ def build_server(settings: Settings, make_reader: Callable[[], TwingateReader]) 
         Use to browse who is in the network; use get_user to look up one email.
         Results are capped by `limit`; if `truncated` is true, more existed than were
         returned, so do not treat the list as complete."""
-        return await reader().list_users(limit=cap(limit))
+        return await _surface(reader().list_users(limit=cap(limit)))
 
     @tool
     async def get_user(email: str) -> User | None:
         """Look up one Twingate user by exact email. Returns null if no user has that email."""
-        return await reader().get_user(email=email)
+        return await _surface(reader().get_user(email=email))
 
     @tool
     async def list_groups(limit: Limit = None) -> Page[Group]:
         """List Twingate groups: id, name, type, whether active, and member count.
         Results are capped by `limit`; if `truncated` is true, more existed than were
         returned, so do not treat the list as complete."""
-        return await reader().list_groups(limit=cap(limit))
+        return await _surface(reader().list_groups(limit=cap(limit)))
 
     @tool
     async def list_resources(limit: Limit = None) -> Page[Resource]:
@@ -72,14 +82,14 @@ def build_server(settings: Settings, make_reader: Callable[[], TwingateReader]) 
         Use get_resource_access with an id to see who can reach one.
         Results are capped by `limit`; if `truncated` is true, more existed than were
         returned, so do not treat the list as complete."""
-        return await reader().list_resources(limit=cap(limit))
+        return await _surface(reader().list_resources(limit=cap(limit)))
 
     @tool
     async def list_remote_networks(limit: Limit = None) -> Page[RemoteNetwork]:
         """List remote networks: id, name, location, whether active, and connector count.
         Results are capped by `limit`; if `truncated` is true, more existed than were
         returned, so do not treat the list as complete."""
-        return await reader().list_remote_networks(limit=cap(limit))
+        return await _surface(reader().list_remote_networks(limit=cap(limit)))
 
     @tool
     async def list_connectors(limit: Limit = None) -> Page[Connector]:
@@ -87,26 +97,26 @@ def build_server(settings: Settings, make_reader: Callable[[], TwingateReader]) 
         Use to check connector health.
         Results are capped by `limit`; if `truncated` is true, more existed than were
         returned, so do not treat the list as complete."""
-        return await reader().list_connectors(limit=cap(limit))
+        return await _surface(reader().list_connectors(limit=cap(limit)))
 
     @tool
     async def list_devices(limit: Limit = None) -> Page[Device]:
         """List devices: id, name, OS, owning user's email, trust status, and last seen time.
         Results are capped by `limit`; if `truncated` is true, more existed than were
         returned, so do not treat the list as complete."""
-        return await reader().list_devices(limit=cap(limit))
+        return await _surface(reader().list_devices(limit=cap(limit)))
 
     @tool
     async def get_resource_access(resource_id: str) -> ResourceAccess:
         """Show which groups and service accounts have access to one resource (by resource id
         from list_resources). If `truncated` is true the principal list is incomplete."""
-        return await reader().get_resource_access(resource_id=resource_id)
+        return await _surface(reader().get_resource_access(resource_id=resource_id))
 
     @tool
     async def get_user_access(email: str) -> UserAccess:
         """Show a user's groups and the resources reachable through those groups.
         Use to answer "what can this person reach?". If `truncated` is true lists are partial."""
-        return await reader().get_user_access(email=email)
+        return await _surface(reader().get_user_access(email=email))
 
     return server
 

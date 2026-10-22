@@ -9,8 +9,9 @@ RETRY_STATUSES = frozenset({429, 502, 503, 504})
 
 
 class TwingateAuthError(Exception):
-    def __init__(self) -> None:
+    def __init__(self, status_code: int) -> None:
         super().__init__("Token invalid or lacks permission")
+        self.status_code = status_code
 
 
 def _retry_after(value: str | None) -> float | None:
@@ -51,6 +52,6 @@ async def with_retry[T](
     except Exception as exc:
         response = _response_of(exc)
         if response is not None and response.status_code in (401, 403):
-            raise TwingateAuthError from None
+            raise TwingateAuthError(response.status_code) from None
         raise
     raise AssertionError("unreachable")  # pragma: no cover
