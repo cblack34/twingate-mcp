@@ -6,10 +6,6 @@ devices, and who can access what. It never creates, changes, or deletes anything
 
 One server process talks to one Twingate network with one API token.
 
-> **Status:** the generated API client is not committed yet. Until a maintainer runs
-> `schema pull` + `schema generate` (see [schema/README.md](schema/README.md)), the server starts and
-> lists its tools, but tool calls return a "client has not been generated" error.
-
 ## 1. Create a read-only API token
 
 In the Twingate Admin Console go to **Settings → API**, generate a token, and choose the

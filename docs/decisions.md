@@ -14,15 +14,13 @@ Short ADR-style log. Newest last.
 
 ## Implementation decisions
 
-- **Generated client pending.** No schema or credentials were available when v1 was built, so
-  `_generated/` and `GraphQLTwingateReader` don't exist yet. `reader.graphql_reader()` raises a
-  clear "run schema pull / schema generate" error. The reader is built lazily on the first tool
-  call, so `serve` and `tools/list` work without it.
-- **Query field names unverified.** `queries/*.graphql` use the spec's expected names
-  (`remoteNetworks`, `state`, `lastHeartbeatAt`, ...). Fix them after `schema generate` fails or
-  succeeds against the real schema.
+- **Lazy reader.** The GraphQL reader is built on the first tool call, so `serve` and `tools/list`
+  work without touching the API.
+- **Query field names verified** against a pulled schema. The root query type is `QueriesRoot`.
+  Device "last seen" uses `lastSuccessfulLoginAt` because `lastConnectedAt` is deprecated. Email
+  lookups use the case-insensitive `ieq` filter.
 - **`pytest-cov` (MIT) added** as a dev dependency; the §9 coverage command needs it.
-- **Retry total timeout** will be `TWINGATE_TIMEOUT_SECONDS × TWINGATE_RETRY_ATTEMPTS` once `GraphQLTwingateReader` exists (§10 has no
+- **Retry total timeout** is `TWINGATE_TIMEOUT_SECONDS × TWINGATE_RETRY_ATTEMPTS` (§10 has no
   separate setting). 401/403 are not retried and become "Token invalid or lacks permission".
 - **`get_user` not-found** returns `null` (MCP wraps it as `{"result": null}`).
 - **Allowed hosts.** Loopback binds allow `127.0.0.1`, `localhost`, and `[::1]` (any port). Other
@@ -35,3 +33,11 @@ Short ADR-style log. Newest last.
   SDL, so it needs the dev dependency group, like `schema generate`.
 - **Regional tenants.** `TWINGATE_NETWORK` is the whole host prefix before `.twingate.com`, so regional
   tenants set e.g. `acme.us1`. No separate region setting.
+- **Generated `HttpClient` cast.** ariadne-codegen's `HttpClient` Protocol declares `post()` params
+  positionally, while `httpx.AsyncClient.post` makes them keyword-only. `reader.py` casts the client
+  with a comment rather than editing `_generated/`.
+- **Tool errors.** Auth failures and not-found lookups are re-raised as `ToolError` so the client sees
+  the message; `MCPServer` hides other exception text.
+- **`get_user_access`** reads one page of groups and one page of resources per group (`page_size`
+  each) and sets `truncated` if either has more.
+- **Tests never reach the network.** An autouse `respx_mock` fixture fails any unmocked httpx request.
