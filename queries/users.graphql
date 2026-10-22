@@ -1,0 +1,35 @@
+query ListUsers($first: Int!, $after: String) {
+  users(first: $first, after: $after) {
+    pageInfo { hasNextPage endCursor }
+    edges { node { id email firstName lastName role state } }
+  }
+}
+
+query GetUserByEmail($email: String!) {
+  users(first: 1, filter: { email: { eq: $email } }) {
+    edges { node { id email firstName lastName role state } }
+  }
+}
+
+query GetUserAccess($email: String!, $first: Int!, $after: String) {
+  users(first: 1, filter: { email: { eq: $email } }) {
+    edges {
+      node {
+        email
+        groups(first: $first, after: $after) {
+          pageInfo { hasNextPage endCursor }
+          edges {
+            node {
+              id
+              name
+              resources(first: $first) {
+                pageInfo { hasNextPage }
+                edges { node { id name } }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

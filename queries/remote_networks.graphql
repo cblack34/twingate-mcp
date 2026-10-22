@@ -1,0 +1,6 @@
+query ListRemoteNetworks($first: Int!, $after: String) {
+  remoteNetworks(first: $first, after: $after) {
+    pageInfo { hasNextPage endCursor }
+    edges { node { id name location isActive connectors { totalCount } } }
+  }
+}

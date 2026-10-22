@@ -1,0 +1,6 @@
+query ListGroups($first: Int!, $after: String) {
+  groups(first: $first, after: $after) {
+    pageInfo { hasNextPage endCursor }
+    edges { node { id name type isActive users { totalCount } } }
+  }
+}
