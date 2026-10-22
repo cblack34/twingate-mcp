@@ -72,3 +72,7 @@ def test_backoff_honours_retry_after() -> None:
     assert backoff(status_error(502)) is True
     assert backoff(status_error(500)) is False
     assert backoff(ValueError("x")) is False
+
+
+def test_backoff_ignores_malformed_retry_after() -> None:
+    assert backoff(status_error(429, {"Retry-After": "not-a-date"})) is True

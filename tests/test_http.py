@@ -60,6 +60,10 @@ def test_is_loopback(host: str, expected: bool) -> None:
         ("0.0.0.0", "evil.example.com", False),
         ("10.0.0.5", "localhost:8000", False),
         ("10.0.0.5", "10.0.0.5:8000", True),
+        ("127.0.0.2", "127.0.0.2:8000", True),
+        ("127.0.0.2", "localhost:8000", True),
+        ("2001:db8::5", "[2001:db8::5]:8000", True),
+        ("2001:db8::5", "[2001:db8::6]:8000", False),
     ],
 )
 def test_allowed_hosts(settings: Settings, bind: str, host_header: str, allowed: bool) -> None:

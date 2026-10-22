@@ -287,3 +287,39 @@ async def test_get_user_access_unknown_email(
     )
     with pytest.raises(UserNotFoundError, match="No user with email"):
         await reader.get_user_access(email="nobody@example.com")
+
+
+async def test_get_user_access_applies_max_limit(
+    reader: GraphQLTwingateReader, no_real_http: respx.MockRouter
+) -> None:
+    reader.settings = reader.settings.model_copy(update={"max_limit": 1})
+
+    def group(gid: str, *names: str) -> dict[str, Any]:
+        edges = [
+            {"node": {"__typename": "NetworkResource", "id": f"id-{n}", "name": n}} for n in names
+        ]
+        resources = {"pageInfo": {"hasNextPage": False}, "edges": edges}
+        return {"node": {"id": gid, "name": gid, "resources": resources}}
+
+    payload = {
+        "data": {
+            "users": {
+                "edges": [
+                    {
+                        "node": {
+                            "email": "alice@example.com",
+                            "groups": {
+                                "pageInfo": {"hasNextPage": False, "endCursor": None},
+                                "edges": [group("g1", "wiki", "ci"), group("g2", "docs")],
+                            },
+                        }
+                    }
+                ]
+            }
+        }
+    }
+    no_real_http.post(URL).mock(return_value=httpx.Response(200, json=payload))
+    access = await reader.get_user_access(email="alice@example.com")
+    assert [g.name for g in access.groups] == ["g1"]
+    assert [r.name for r in access.resources] == ["wiki"]
+    assert access.truncated

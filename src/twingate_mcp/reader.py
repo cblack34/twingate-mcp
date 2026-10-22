@@ -254,8 +254,13 @@ class GraphQLTwingateReader:
                 truncated |= g.resources.page_info.has_next_page
                 for r in (e.node for e in g.resources.edges):
                     resources.setdefault(r.id, NamedRef(id=r.id, name=r.name))
+        limit = self.settings.max_limit
+        truncated |= len(groups) > limit or len(resources) > limit
         return UserAccess(
-            email=email, groups=groups, resources=list(resources.values()), truncated=truncated
+            email=email,
+            groups=groups[:limit],
+            resources=list(resources.values())[:limit],
+            truncated=truncated,
         )
 
 

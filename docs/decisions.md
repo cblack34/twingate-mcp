@@ -58,3 +58,7 @@ Short ADR-style log. Newest last.
   `build-and-scan` checks passing (from GitHub Actions only). Force-push and deletion are blocked.
   No bypass actors; edit the ruleset itself in an emergency. Actions must be pinned to SHAs.
   Dependabot covers uv, Actions, Docker, and pre-commit.
+- **Review fixes.** An empty `TWINGATE_MCP_HTTP_TOKEN` is rejected at startup. Loopback binds other
+  than the three aliases (e.g. `127.0.0.2`) also allow their own address, and IPv6 literals are
+  bracketed in the Host/Origin allowlists. `get_user_access` caps groups and resources at
+  `TWINGATE_MAX_LIMIT` and sets `truncated` when it drops entries.

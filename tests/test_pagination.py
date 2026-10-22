@@ -57,3 +57,17 @@ async def test_fixture_page() -> None:
 
     page = await collect(fetch, limit=10, page_size=100)
     assert page.items == ["alice@example.com", "bob@example.org"]
+
+
+async def test_page_boundary_does_not_overfetch() -> None:
+    fetch, calls = pages(10)
+    page = await collect(fetch, limit=3, page_size=3)
+    assert page.items == [0, 1, 2]
+    assert page.truncated
+    assert calls == [(None, 3)]
+
+
+async def test_requests_only_remaining_items() -> None:
+    fetch, calls = pages(10)
+    await collect(fetch, limit=4, page_size=3)
+    assert calls == [(None, 3), ("3", 1)]

@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import Awaitable, Callable
 
 from pydantic import BaseModel
 
@@ -13,25 +13,15 @@ class PageInfo(BaseModel):
 type FetchPage[T] = Callable[[str | None, int], Awaitable[tuple[list[T], PageInfo]]]
 
 
-async def paginate[T](fetch: FetchPage[T], *, page_size: int) -> AsyncIterator[T]:
-    """Follow `pageInfo` cursors until the API reports no next page."""
-    cursor: str | None = None
-    while True:
-        items, info = await fetch(cursor, page_size)
-        for item in items:
-            yield item
-        if not info.has_next_page:
-            return
-        cursor = info.end_cursor
-
-
 async def collect[T](fetch: FetchPage[T], *, limit: int, page_size: int) -> Page[T]:
     """Gather up to `limit` items; `truncated` is set if more remained."""
     items: list[T] = []
-    truncated = False
-    async for item in paginate(fetch, page_size=min(page_size, limit)):
-        if len(items) == limit:
-            truncated = True
-            break
-        items.append(item)
-    return Page[T](items=items, total_returned=len(items), truncated=truncated)
+    cursor: str | None = None
+    while True:
+        room = limit - len(items)
+        batch, info = await fetch(cursor, min(page_size, room))
+        items.extend(batch[:room])
+        if len(items) == limit or not info.has_next_page:
+            truncated = info.has_next_page or len(batch) > room
+            return Page[T](items=items, total_returned=len(items), truncated=truncated)
+        cursor = info.end_cursor

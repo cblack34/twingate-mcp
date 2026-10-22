@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     max_limit: int = Field(default=1000, ge=1)
     timeout_seconds: float = Field(default=30, gt=0)
     retry_attempts: int = Field(default=5, ge=1)
-    mcp_http_token: SecretStr | None = None
+    mcp_http_token: SecretStr | None = Field(default=None, min_length=1)
     log_level: str = "INFO"
 
     @property

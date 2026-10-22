@@ -104,3 +104,10 @@ def test_schema_pull_401_is_clear(env: None, no_real_http: respx.MockRouter) -> 
     assert result.exit_code == 1
     assert "Token invalid or lacks permission" in result.output
     assert FAKE_ENV["TWINGATE_API_KEY"] not in result.output
+
+
+def test_empty_http_token_rejected(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TWINGATE_MCP_HTTP_TOKEN", "")
+    result = runner.invoke(app, ["serve", "--transport", "http", "--host", "0.0.0.0"])
+    assert result.exit_code == 1
+    assert "TWINGATE_MCP_HTTP_TOKEN" in result.output

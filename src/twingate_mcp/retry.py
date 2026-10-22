@@ -17,9 +17,12 @@ class TwingateAuthError(Exception):
 def _retry_after(value: str | None) -> float | None:
     if not value:
         return None
-    if value.isdigit():
-        return float(value)
-    parsed = email.utils.parsedate_to_datetime(value)
+    try:
+        if value.isdigit():
+            return float(value)
+        parsed = email.utils.parsedate_to_datetime(value)
+    except ValueError:
+        return None
     return max(parsed.timestamp() - time.time(), 0.0)
 
 
