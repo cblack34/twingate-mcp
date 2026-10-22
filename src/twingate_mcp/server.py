@@ -151,7 +151,14 @@ class BearerTokenMiddleware:
 
 def http_app(server: MCPServer, settings: Settings, host: str) -> ASGIApp:
     """Streamable HTTP app with DNS-rebinding protection and the optional bearer guard."""
-    hosts = ["127.0.0.1", "localhost", "[::1]"] if is_loopback(host) else [host]
+    loopback = ["127.0.0.1", "localhost", "[::1]"]
+    if is_loopback(host):
+        hosts = loopback
+    elif host in ("0.0.0.0", "::"):  # noqa: S104
+        # A wildcard bind (e.g. in a container) also serves loopback, as via a published port.
+        hosts = [host, *loopback]
+    else:
+        hosts = [host]
     security = TransportSecuritySettings(
         allowed_hosts=[h for name in hosts for h in (name, f"{name}:*")],
         allowed_origins=[o for name in hosts for o in (f"http://{name}", f"http://{name}:*")],
