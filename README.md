@@ -67,6 +67,35 @@ accepts `Host` headers matching the bind address.
 > holding it can read everything the Twingate API token can read. Use HTTPS in front of it (a reverse
 > proxy) and don't expose it to the internet.
 
+## 5. Docker
+
+The image runs as a non-root user and contains only the runtime virtualenv. `.env` and the schema
+are excluded from the build context.
+
+```sh
+docker build -t twingate-mcp:local .
+```
+
+**stdio (Claude Desktop):** use `docker` as the command:
+
+```json
+"twingate": {
+  "command": "docker",
+  "args": ["run", "-i", "--rm", "--env-file", "/path/to/twingate-mcp/.env", "twingate-mcp:local"]
+}
+```
+
+**HTTP (Compose):** add `TWINGATE_MCP_HTTP_TOKEN` to `.env` (generate one with
+`openssl rand -hex 32`), then:
+
+```sh
+docker compose up -d     # http://localhost:8000/mcp, published on 127.0.0.1 only
+```
+
+Inside the container the server binds `0.0.0.0`, so the bearer token is mandatory. It accepts
+`localhost` and `127.0.0.1` Host headers; put a TLS reverse proxy in front before exposing it beyond
+the local machine.
+
 ## Tools
 
 All tools are read-only. List tools take an optional `limit` (default `TWINGATE_DEFAULT_LIMIT`,

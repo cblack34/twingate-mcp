@@ -45,3 +45,7 @@ Short ADR-style log. Newest last.
   "no such user" isn't mistaken for "user with no access".
 - **CI** (`.github/workflows/ci.yml`) runs the §9 gates on Python 3.14; gitleaks runs from its
   official container image. Not yet run on GitHub.
+- **Wildcard binds** (`0.0.0.0`, `::`) also allow the loopback Host headers, since they serve
+  loopback too. That's what makes a container's published port reachable at `localhost`.
+- **Docker image** is `python:3.14-slim-trixie` with a uv builder stage; only the non-editable
+  venv is copied into the runtime stage. The default command is stdio; Compose runs HTTP.
