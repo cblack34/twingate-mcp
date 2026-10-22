@@ -39,6 +39,11 @@ class TwingateReader(Protocol):
     async def get_user_access(self, *, email: str) -> UserAccess: ...
 
 
+class UserNotFoundError(LookupError):
+    def __init__(self, email: str) -> None:
+        super().__init__(f"No user with email {email!r}")
+
+
 class ResourceNotFoundError(LookupError):
     def __init__(self, resource_id: str) -> None:
         super().__init__(f"No resource with id {resource_id!r}")
@@ -237,6 +242,8 @@ class GraphQLTwingateReader:
             "GetUserAccess",
             lambda: self.client.get_user_access(email, self.settings.page_size),
         )
+        if not data.users.edges:
+            raise UserNotFoundError(email)
         groups: list[NamedRef] = []
         resources: dict[str, NamedRef] = {}
         truncated = False

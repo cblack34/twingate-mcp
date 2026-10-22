@@ -11,7 +11,7 @@ from mcp import Client
 
 from tests import factories as f
 from tests.conftest import FAKE_ENV
-from twingate_mcp.reader import GraphQLTwingateReader, ResourceNotFoundError
+from twingate_mcp.reader import GraphQLTwingateReader, ResourceNotFoundError, UserNotFoundError
 from twingate_mcp.retry import TwingateAuthError
 from twingate_mcp.server import build_server
 from twingate_mcp.settings import Settings
@@ -277,3 +277,13 @@ async def test_get_user_access(
     assert [g.name for g in access.groups] == ["eng-team", "ops-team"]
     assert [r.name for r in access.resources] == ["wiki", "ci"]
     assert access.truncated
+
+
+async def test_get_user_access_unknown_email(
+    reader: GraphQLTwingateReader, no_real_http: respx.MockRouter
+) -> None:
+    no_real_http.post(URL).mock(
+        return_value=httpx.Response(200, json={"data": {"users": {"edges": []}}})
+    )
+    with pytest.raises(UserNotFoundError, match="No user with email"):
+        await reader.get_user_access(email="nobody@example.com")

@@ -41,3 +41,7 @@ Short ADR-style log. Newest last.
 - **`get_user_access`** reads one page of groups and one page of resources per group (`page_size`
   each) and sets `truncated` if either has more.
 - **Tests never reach the network.** An autouse `respx_mock` fixture fails any unmocked httpx request.
+- **Unknown email in `get_user_access`** is a not-found tool error, not an empty access list, so
+  "no such user" isn't mistaken for "user with no access".
+- **CI** (`.github/workflows/ci.yml`) runs the §9 gates on Python 3.14; gitleaks runs from its
+  official container image. Not yet run on GitHub.
