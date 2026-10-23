@@ -1,0 +1,23 @@
+query ListResources($first: Int!, $after: String) {
+  resources(first: $first, after: $after) {
+    pageInfo { hasNextPage endCursor }
+    edges { node { id name address { value } remoteNetwork { name } isActive } }
+  }
+}
+
+query GetResourceAccess($id: ID!, $first: Int!, $after: String) {
+  resource(id: $id) {
+    id
+    name
+    access(first: $first, after: $after) {
+      pageInfo { hasNextPage endCursor }
+      edges {
+        node {
+          __typename
+          ... on Group { id name }
+          ... on ServiceAccount { id name }
+        }
+      }
+    }
+  }
+}

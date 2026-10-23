@@ -1,0 +1,12 @@
+{
+  "data": {
+    "users": {
+      "pageInfo": {"hasNextPage": false, "endCursor": null},
+      "edges": [
+        {"node": {"id": "VXNlcjox", "email": "alice@example.com", "firstName": "Alice", "lastName": "Example", "role": "ADMIN", "state": "ACTIVE"}},
+        {"node": {"id": "VXNlcjoy", "email": "bob@example.org", "firstName": "Bob", "lastName": "Example", "role": "MEMBER", "state": "ACTIVE"}}
+      ]
+    }
+  },
+  "network": "acme-test"
+}

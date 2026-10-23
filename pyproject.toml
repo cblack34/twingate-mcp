@@ -1,0 +1,69 @@
+[project]
+name = "twingate-mcp"
+version = "0.1.0"
+description = "Read-only MCP server for the Twingate GraphQL Admin API"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.14"
+dependencies = [
+    "anyio>=4.15",
+    "httpx>=0.28",
+    "mcp>=2.3",
+    "pydantic>=2.14",
+    "pydantic-settings>=2.15",
+    "stamina>=26.1",
+    "starlette>=1.7",
+    "typer>=0.27",
+    "uvicorn>=0.54",
+]
+
+[project.scripts]
+twingate-mcp = "twingate_mcp.cli:app"
+
+[dependency-groups]
+dev = [
+    "ariadne-codegen>=0.19",
+    "faker>=40.43",
+    "pip-licenses",
+    "polyfactory>=3.5",
+    "pre-commit",
+    "pyright",
+    "pytest",
+    "pytest-cov",
+    "respx>=0.23",
+    "ruff",
+]
+
+[build-system]
+requires = ["uv_build>=0.9,<1"]
+build-backend = "uv_build"
+
+[tool.ariadne-codegen]
+schema_path = "schema/twingate.graphql"
+queries_path = "queries"
+target_package_name = "_generated"
+target_package_path = "src/twingate_mcp"
+
+[tool.ruff]
+line-length = 100
+extend-exclude = ["src/twingate_mcp/_generated"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "ASYNC", "RUF", "C90"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S104", "S105", "S106", "S603"]
+
+[tool.pyright]
+include = ["src", "tests"]
+exclude = ["src/twingate_mcp/_generated"]
+strict = ["src"]
+pythonVersion = "3.14"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-p anyio"
+
+[tool.coverage.run]
+omit = ["src/twingate_mcp/_generated/*"]

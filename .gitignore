@@ -1,0 +1,8 @@
+.env
+schema/*.graphql
+.venv/
+__pycache__/
+.coverage
+.pytest_cache/
+.ruff_cache/
+dist/

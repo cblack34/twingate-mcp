@@ -1,0 +1,6 @@
+query ListConnectors($first: Int!, $after: String) {
+  connectors(first: $first, after: $after) {
+    pageInfo { hasNextPage endCursor }
+    edges { node { id name state lastHeartbeatAt remoteNetwork { name } } }
+  }
+}
