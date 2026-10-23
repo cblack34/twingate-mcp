@@ -71,3 +71,21 @@ def test_allowed_hosts(settings: Settings, bind: str, host_header: str, allowed:
     with TestClient(app) as client:
         response = client.post("/mcp", json={}, headers={"Host": host_header})
     assert (response.status_code != 421) is allowed
+
+
+@pytest.mark.parametrize(
+    ("origin", "allowed"),
+    [
+        ("http://localhost:8000", True),
+        ("https://localhost", True),
+        ("https://localhost:8443", True),
+        ("https://evil.example.com", False),
+    ],
+)
+def test_allowed_origins(settings: Settings, origin: str, allowed: bool) -> None:
+    app = http_app(build_server(settings, FakeTwingateReader), settings, "127.0.0.1")
+    with TestClient(app) as client:
+        response = client.post(
+            "/mcp", json={}, headers={"Host": "localhost:8000", "Origin": origin}
+        )
+    assert (response.status_code != 403) is allowed

@@ -62,3 +62,7 @@ Short ADR-style log. Newest last.
   than the three aliases (e.g. `127.0.0.2`) also allow their own address, and IPv6 literals are
   bracketed in the Host/Origin allowlists. `get_user_access` caps groups and resources at
   `TWINGATE_MAX_LIMIT` and sets `truncated` when it drops entries.
+- **Review fixes (2).** `GraphQLTwingateReader` no longer takes an `http_client`: nothing injected one,
+  and the generated client doesn't apply its `headers` to a supplied client, so the API key could be
+  silently dropped. The Origin allowlist now covers `https://` for the same hosts as `http://`, so a
+  TLS reverse proxy works; the Host allowlist is unchanged.

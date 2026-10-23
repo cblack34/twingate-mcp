@@ -162,7 +162,12 @@ def http_app(server: MCPServer, settings: Settings, host: str) -> ASGIApp:
         hosts = [name]
     security = TransportSecuritySettings(
         allowed_hosts=[h for name in hosts for h in (name, f"{name}:*")],
-        allowed_origins=[o for name in hosts for o in (f"http://{name}", f"http://{name}:*")],
+        allowed_origins=[
+            f"{scheme}://{n}{port}"
+            for n in hosts
+            for scheme in ("http", "https")
+            for port in ("", ":*")
+        ],
     )
     app = server.streamable_http_app(transport_security=security, host=host)
     if settings.mcp_http_token is not None:

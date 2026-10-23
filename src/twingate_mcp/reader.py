@@ -56,7 +56,7 @@ def _info(page_info: object) -> PageInfo:
 class GraphQLTwingateReader:
     """The only code that touches `_generated/`; flattens edges/node into `models.py` types."""
 
-    def __init__(self, settings: Settings, http_client: httpx.AsyncClient | None = None) -> None:
+    def __init__(self, settings: Settings) -> None:
         self.settings = settings
         headers = {"X-API-KEY": settings.api_key.get_secret_value()}
         self.client = Client(
@@ -66,7 +66,7 @@ class GraphQLTwingateReader:
             # keyword-only, so pyright rejects a structurally compatible client.
             http_client=cast(
                 HttpClient,
-                http_client or httpx.AsyncClient(headers=headers, timeout=settings.timeout_seconds),
+                httpx.AsyncClient(headers=headers, timeout=settings.timeout_seconds),
             ),
         )
 
