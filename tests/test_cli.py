@@ -10,6 +10,7 @@ from tests.conftest import FAKE_ENV
 from tests.fakes import FakeTwingateReader
 from twingate_mcp import __version__, reader
 from twingate_mcp.cli import app
+from twingate_mcp.settings import Settings
 
 runner = CliRunner()
 URL = "https://acme-test.twingate.com/api/graphql/"
@@ -111,3 +112,20 @@ def test_empty_http_token_rejected(env: None, monkeypatch: pytest.MonkeyPatch) -
     result = runner.invoke(app, ["serve", "--transport", "http", "--host", "0.0.0.0"])
     assert result.exit_code == 1
     assert "TWINGATE_MCP_HTTP_TOKEN" in result.output
+
+
+@pytest.mark.parametrize("network", ["example.net/", "collector.example.com/#", "a@b"])
+def test_invalid_network_rejected(monkeypatch: pytest.MonkeyPatch, network: str) -> None:
+    monkeypatch.setenv("TWINGATE_NETWORK", network)
+    monkeypatch.setenv("TWINGATE_API_KEY", FAKE_ENV["TWINGATE_API_KEY"])
+    result = runner.invoke(app, ["schema", "pull"])
+    assert result.exit_code == 1
+    assert "TWINGATE_NETWORK" in result.output
+    assert network not in result.output
+
+
+def test_regional_network_accepted(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TWINGATE_NETWORK", "acme.us1")
+    monkeypatch.setenv("TWINGATE_API_KEY", FAKE_ENV["TWINGATE_API_KEY"])
+    settings = Settings()  # pyright: ignore[reportCallIssue]
+    assert settings.endpoint == "https://acme.us1.twingate.com/api/graphql/"

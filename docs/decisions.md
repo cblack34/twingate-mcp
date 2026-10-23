@@ -66,3 +66,5 @@ Short ADR-style log. Newest last.
   and the generated client doesn't apply its `headers` to a supplied client, so the API key could be
   silently dropped. The Origin allowlist now covers `https://` for the same hosts as `http://`, so a
   TLS reverse proxy works; the Host allowlist is unchanged.
+- **Review fixes (3).** `TWINGATE_NETWORK` must be dot-separated labels of letters, digits, and
+  hyphens, so a value can't redirect the API key to another host (e.g. `example.net/`).

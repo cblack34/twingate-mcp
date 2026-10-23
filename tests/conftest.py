@@ -19,6 +19,7 @@ def settings() -> Settings:
             "api_key": "fake-key-for-tests",
             "default_limit": 3,
             "max_limit": 4,
+            "mcp_http_token": None,
         },
     )
 

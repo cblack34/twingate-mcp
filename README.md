@@ -24,7 +24,7 @@ uv run twingate-mcp version
 
 | Variable | Default | Notes |
 |---|---|---|
-| `TWINGATE_NETWORK` | required | Host before `.twingate.com`, e.g. `acme` or `acme.us1` |
+| `TWINGATE_NETWORK` | required | Host before `.twingate.com` (letters, digits, `-`, `.`), e.g. `acme` or `acme.us1` |
 | `TWINGATE_API_KEY` | required | Read-only token recommended |
 | `TWINGATE_PAGE_SIZE` | `100` | 1–100 |
 | `TWINGATE_DEFAULT_LIMIT` | `100` | Items per tool call when `limit` is omitted |

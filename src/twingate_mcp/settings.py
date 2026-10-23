@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="TWINGATE_", env_file=".env", extra="ignore")
 
-    network: str
+    network: str = Field(pattern=r"^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*$")
     api_key: SecretStr
     page_size: int = Field(default=100, ge=1, le=100)
     default_limit: int = Field(default=100, ge=1)
