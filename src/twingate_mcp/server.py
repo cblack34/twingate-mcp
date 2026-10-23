@@ -136,12 +136,14 @@ class BearerTokenMiddleware:
 
     def __init__(self, app: ASGIApp, token: SecretStr) -> None:
         self.app = app
-        self.expected = f"Bearer {token.get_secret_value()}".encode()
+        self.expected = token.get_secret_value().encode()
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] == "http":
-            supplied = Headers(scope=scope).get("authorization", "").encode()
-            if not hmac.compare_digest(supplied, self.expected):
+            scheme, _, supplied = Headers(scope=scope).get("authorization", "").partition(" ")
+            if scheme.lower() != "bearer" or not hmac.compare_digest(
+                supplied.encode(), self.expected
+            ):
                 response = PlainTextResponse(
                     "Unauthorized", status_code=401, headers={"WWW-Authenticate": "Bearer"}
                 )

@@ -16,7 +16,15 @@ async def ok_app(scope: Scope, receive: Receive, send: Send) -> None:
 
 @pytest.mark.parametrize(
     ("header", "status"),
-    [(None, 401), ("Bearer wrong", 401), ("shared-secret", 401), ("Bearer shared-secret", 200)],
+    [
+        (None, 401),
+        ("Bearer wrong", 401),
+        ("shared-secret", 401),
+        ("Bearer shared-secret", 200),
+        ("bearer shared-secret", 200),
+        ("bEaReR shared-secret", 200),
+        ("bearer SHARED-SECRET", 401),
+    ],
 )
 @pytest.mark.anyio
 async def test_bearer_middleware(header: str | None, status: int) -> None:
