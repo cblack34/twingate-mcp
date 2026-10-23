@@ -161,6 +161,7 @@ def http_app(server: MCPServer, settings: Settings, host: str) -> ASGIApp:
         hosts = [name, *loopback]
     else:
         hosts = [name]
+    hosts = [*hosts, *settings.mcp_allowed_hosts]
     security = TransportSecuritySettings(
         allowed_hosts=[h for name in hosts for h in (name, f"{name}:*")],
         allowed_origins=[

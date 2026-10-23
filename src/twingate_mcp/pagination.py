@@ -21,7 +21,8 @@ async def collect[T](fetch: FetchPage[T], *, limit: int, page_size: int) -> Page
         room = limit - len(items)
         batch, info = await fetch(cursor, min(page_size, room))
         items.extend(batch[:room])
-        if len(items) == limit or not info.has_next_page:
+        stalled = not batch or info.end_cursor in (None, cursor)
+        if len(items) == limit or not info.has_next_page or stalled:
             truncated = info.has_next_page or len(batch) > room
             return Page[T](items=items, total_returned=len(items), truncated=truncated)
         cursor = info.end_cursor

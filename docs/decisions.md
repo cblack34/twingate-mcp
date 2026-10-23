@@ -68,3 +68,13 @@ Short ADR-style log. Newest last.
   TLS reverse proxy works; the Host allowlist is unchanged.
 - **Review fixes (3).** `TWINGATE_NETWORK` must be dot-separated labels of letters, digits, and
   hyphens, so a value can't redirect the API key to another host (e.g. `example.net/`).
+- **Review fixes (4).** A `Retry-After` delay is capped at the time left in the retry budget, so a
+  large value can't sleep past `max_seconds`. `collect` stops (and sets `truncated`) when a page is
+  empty or its cursor is missing or unchanged. `get_user_access` asks for `page_size` groups but only
+  `min(page_size, 25)` resources per group (`$resourcesFirst`), so one call is at most 100 x 25 = 2,500
+  resource nodes instead of 10,000; groups with more resources set `truncated`. `TWINGATE_MCP_ALLOWED_HOSTS`
+  (comma-separated, default empty) adds hostnames to the derived Host/Origin allowlist, so DNS-name
+  clients such as other Compose services pass on a non-loopback bind. `schema pull` reports GraphQL
+  error messages instead of a `KeyError`. `TWINGATE_LOG_LEVEL` accepts `DEBUG`/`INFO`/`WARNING`/
+  `ERROR`/`CRITICAL` in any case and is rejected at startup otherwise. `get_user_access` returns the
+  stored email, not the caller's casing. The API key header is set once, on the `httpx.AsyncClient`.

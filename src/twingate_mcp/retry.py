@@ -42,13 +42,26 @@ def backoff(exc: Exception) -> bool | float:
     return True if delay is None else delay
 
 
+def bounded_backoff(max_seconds: float) -> Callable[[Exception], bool | float]:
+    """`backoff` with any Retry-After delay capped to what is left of the retry budget."""
+    started = time.monotonic()
+
+    def on(exc: Exception) -> bool | float:
+        decision = backoff(exc)
+        if isinstance(decision, bool):
+            return decision
+        return min(decision, max(max_seconds - (time.monotonic() - started), 0.0))
+
+    return on
+
+
 async def with_retry[T](
     call: Callable[[], Awaitable[T]], *, attempts: int, max_seconds: float
 ) -> T:
     """Run `call` under the retry policy; 401/403 become `TwingateAuthError`."""
     try:
         async for attempt in stamina.retry_context(
-            on=backoff, attempts=attempts, timeout=max_seconds
+            on=bounded_backoff(max_seconds), attempts=attempts, timeout=max_seconds
         ):
             with attempt:
                 return await call()

@@ -129,3 +129,31 @@ def test_regional_network_accepted(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TWINGATE_API_KEY", FAKE_ENV["TWINGATE_API_KEY"])
     settings = Settings()  # pyright: ignore[reportCallIssue]
     assert settings.endpoint == "https://acme.us1.twingate.com/api/graphql/"
+
+
+def test_schema_pull_graphql_errors_are_clear(env: None, no_real_http: respx.MockRouter) -> None:
+    no_real_http.post(URL).mock(
+        return_value=httpx.Response(200, json={"errors": [{"message": "Introspection disabled"}]})
+    )
+    result = runner.invoke(app, ["schema", "pull"])
+    assert result.exit_code == 1
+    assert "Introspection disabled" in result.output
+    assert FAKE_ENV["TWINGATE_API_KEY"] not in result.output
+
+
+def test_unknown_log_level_rejected(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TWINGATE_LOG_LEVEL", "loud")
+    result = runner.invoke(app, ["schema", "pull"])
+    assert result.exit_code == 1
+    assert "TWINGATE_LOG_LEVEL" in result.output
+    assert "loud" not in result.output
+
+
+def test_settings_parse_log_level_and_allowed_hosts(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TWINGATE_NETWORK", "acme-test")
+    monkeypatch.setenv("TWINGATE_API_KEY", FAKE_ENV["TWINGATE_API_KEY"])
+    monkeypatch.setenv("TWINGATE_LOG_LEVEL", "debug")
+    monkeypatch.setenv("TWINGATE_MCP_ALLOWED_HOSTS", "mcp.example.com, svc.example.net,")
+    settings = Settings()  # pyright: ignore[reportCallIssue]
+    assert settings.log_level == "DEBUG"
+    assert settings.mcp_allowed_hosts == ["mcp.example.com", "svc.example.net"]

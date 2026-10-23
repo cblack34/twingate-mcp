@@ -286,11 +286,12 @@ class Client(AsyncBaseClient):
         self,
         email: str,
         first: int,
+        resources_first: int,
         after: Union[Optional[str], UnsetType] = UNSET,
         **kwargs: Any,
     ) -> GetUserAccess:
         query = gql("""
-            query GetUserAccess($email: String!, $first: Int!, $after: String) {
+            query GetUserAccess($email: String!, $first: Int!, $resourcesFirst: Int!, $after: String) {
               users(first: 1, filter: {email: {ieq: $email}}) {
                 edges {
                   node {
@@ -304,7 +305,7 @@ class Client(AsyncBaseClient):
                         node {
                           id
                           name
-                          resources(first: $first) {
+                          resources(first: $resourcesFirst) {
                             pageInfo {
                               hasNextPage
                             }
@@ -324,7 +325,12 @@ class Client(AsyncBaseClient):
               }
             }
             """)
-        variables: dict[str, object] = {"email": email, "first": first, "after": after}
+        variables: dict[str, object] = {
+            "email": email,
+            "first": first,
+            "resourcesFirst": resources_first,
+            "after": after,
+        }
         response = await self.execute(
             query=query, operation_name="GetUserAccess", variables=variables, **kwargs
         )

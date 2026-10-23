@@ -6,7 +6,7 @@ import pytest
 import respx
 import stamina
 
-from twingate_mcp.retry import TwingateAuthError, backoff, with_retry
+from twingate_mcp.retry import TwingateAuthError, backoff, bounded_backoff, with_retry
 
 pytestmark = pytest.mark.anyio
 URL = "https://acme-test.twingate.com/api/graphql/"
@@ -76,3 +76,10 @@ def test_backoff_honours_retry_after() -> None:
 
 def test_backoff_ignores_malformed_retry_after() -> None:
     assert backoff(status_error(429, {"Retry-After": "not-a-date"})) is True
+
+
+def test_retry_after_capped_to_budget() -> None:
+    on = bounded_backoff(10)
+    assert on(status_error(429, {"Retry-After": "3600"})) <= 10
+    assert on(status_error(429, {"Retry-After": "2"})) == 2.0
+    assert on(status_error(502)) is True

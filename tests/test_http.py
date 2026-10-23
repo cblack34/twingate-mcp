@@ -89,3 +89,17 @@ def test_allowed_origins(settings: Settings, origin: str, allowed: bool) -> None
             "/mcp", json={}, headers={"Host": "localhost:8000", "Origin": origin}
         )
     assert (response.status_code != 403) is allowed
+
+
+def test_extra_allowed_hosts(settings: Settings) -> None:
+    settings = settings.model_copy(update={"mcp_allowed_hosts": ["twingate-mcp"]})
+    app = http_app(build_server(settings, FakeTwingateReader), settings, "0.0.0.0")
+    with TestClient(app) as client:
+        host = client.post("/mcp", json={}, headers={"Host": "twingate-mcp:8000"})
+        origin = client.post(
+            "/mcp",
+            json={},
+            headers={"Host": "twingate-mcp:8000", "Origin": "http://twingate-mcp:8000"},
+        )
+    assert host.status_code != 421
+    assert origin.status_code != 403

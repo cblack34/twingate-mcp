@@ -1,7 +1,7 @@
 import logging
 import time
 from collections.abc import Awaitable, Callable
-from typing import Protocol, cast
+from typing import Any, Protocol, cast
 
 import httpx
 
@@ -25,6 +25,8 @@ from twingate_mcp.retry import with_retry
 from twingate_mcp.settings import Settings
 
 log = logging.getLogger(__name__)
+
+RESOURCES_PER_GROUP = 25
 
 
 class TwingateReader(Protocol):
@@ -53,20 +55,32 @@ def _info(page_info: object) -> PageInfo:
     return PageInfo.model_validate(page_info, from_attributes=True)
 
 
+def _user(n: Any) -> User:
+    return User(
+        id=n.id,
+        email=n.email,
+        first_name=n.first_name,
+        last_name=n.last_name,
+        role=n.role.value,
+        state=n.state.value,
+    )
+
+
 class GraphQLTwingateReader:
     """The only code that touches `_generated/`; flattens edges/node into `models.py` types."""
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
-        headers = {"X-API-KEY": settings.api_key.get_secret_value()}
         self.client = Client(
             url=settings.endpoint,
-            headers=headers,
             # The generated HttpClient Protocol lists post() params as positional; httpx's are
             # keyword-only, so pyright rejects a structurally compatible client.
             http_client=cast(
                 HttpClient,
-                httpx.AsyncClient(headers=headers, timeout=settings.timeout_seconds),
+                httpx.AsyncClient(
+                    headers={"X-API-KEY": settings.api_key.get_secret_value()},
+                    timeout=settings.timeout_seconds,
+                ),
             ),
         )
 
@@ -88,41 +102,16 @@ class GraphQLTwingateReader:
             elapsed = (time.monotonic() - started) * 1000
             log.info("twingate %s %s in %.0fms", operation, outcome, elapsed)
 
-    async def _page[T](
-        self, fetch: Callable[[str | None, int], Awaitable[tuple[list[T], PageInfo]]], limit: int
-    ) -> Page[T]:
-        return await collect(fetch, limit=limit, page_size=self.settings.page_size)
-
     async def list_users(self, *, limit: int) -> Page[User]:
         async def fetch(after: str | None, first: int) -> tuple[list[User], PageInfo]:
             data = await self._call("ListUsers", lambda: self.client.list_users(first, after))
-            return [
-                User(
-                    id=n.id,
-                    email=n.email,
-                    first_name=n.first_name,
-                    last_name=n.last_name,
-                    role=n.role.value,
-                    state=n.state.value,
-                )
-                for n in (e.node for e in data.users.edges)
-            ], _info(data.users.page_info)
+            return [_user(e.node) for e in data.users.edges], _info(data.users.page_info)
 
-        return await self._page(fetch, limit)
+        return await collect(fetch, limit=limit, page_size=self.settings.page_size)
 
     async def get_user(self, *, email: str) -> User | None:
         data = await self._call("GetUserByEmail", lambda: self.client.get_user_by_email(email))
-        for edge in data.users.edges:
-            n = edge.node
-            return User(
-                id=n.id,
-                email=n.email,
-                first_name=n.first_name,
-                last_name=n.last_name,
-                role=n.role.value,
-                state=n.state.value,
-            )
-        return None
+        return _user(data.users.edges[0].node) if data.users.edges else None
 
     async def list_groups(self, *, limit: int) -> Page[Group]:
         async def fetch(after: str | None, first: int) -> tuple[list[Group], PageInfo]:
@@ -138,7 +127,7 @@ class GraphQLTwingateReader:
                 for n in (e.node for e in data.groups.edges)
             ], _info(data.groups.page_info)
 
-        return await self._page(fetch, limit)
+        return await collect(fetch, limit=limit, page_size=self.settings.page_size)
 
     async def list_resources(self, *, limit: int) -> Page[Resource]:
         async def fetch(after: str | None, first: int) -> tuple[list[Resource], PageInfo]:
@@ -156,7 +145,7 @@ class GraphQLTwingateReader:
                 for n in (e.node for e in data.resources.edges)
             ], _info(data.resources.page_info)
 
-        return await self._page(fetch, limit)
+        return await collect(fetch, limit=limit, page_size=self.settings.page_size)
 
     async def list_remote_networks(self, *, limit: int) -> Page[RemoteNetwork]:
         async def fetch(after: str | None, first: int) -> tuple[list[RemoteNetwork], PageInfo]:
@@ -174,7 +163,7 @@ class GraphQLTwingateReader:
                 for n in (e.node for e in data.remote_networks.edges)
             ], _info(data.remote_networks.page_info)
 
-        return await self._page(fetch, limit)
+        return await collect(fetch, limit=limit, page_size=self.settings.page_size)
 
     async def list_connectors(self, *, limit: int) -> Page[Connector]:
         async def fetch(after: str | None, first: int) -> tuple[list[Connector], PageInfo]:
@@ -192,7 +181,7 @@ class GraphQLTwingateReader:
                 for n in (e.node for e in data.connectors.edges)
             ], _info(data.connectors.page_info)
 
-        return await self._page(fetch, limit)
+        return await collect(fetch, limit=limit, page_size=self.settings.page_size)
 
     async def list_devices(self, *, limit: int) -> Page[Device]:
         async def fetch(after: str | None, first: int) -> tuple[list[Device], PageInfo]:
@@ -209,7 +198,7 @@ class GraphQLTwingateReader:
                 for n in (e.node for e in data.devices.edges)
             ], _info(data.devices.page_info)
 
-        return await self._page(fetch, limit)
+        return await collect(fetch, limit=limit, page_size=self.settings.page_size)
 
     async def get_resource_access(self, *, resource_id: str) -> ResourceAccess:
         found: list[NamedRef] = []
@@ -232,15 +221,21 @@ class GraphQLTwingateReader:
                 for e in resource.access.edges
             ], _info(resource.access.page_info)
 
-        page = await self._page(fetch, self.settings.max_limit)
+        page = await collect(
+            fetch, limit=self.settings.max_limit, page_size=self.settings.page_size
+        )
         return ResourceAccess(resource=found[0], principals=page.items, truncated=page.truncated)
 
     async def get_user_access(self, *, email: str) -> UserAccess:
-        # ponytail: one page of groups and one page of resources per group (page_size each);
-        # `truncated` flags anything beyond that. Follow nested cursors if that proves too small.
+        # ponytail: one page of groups (page_size) and one page of resources per group
+        # (RESOURCES_PER_GROUP); `truncated` flags anything beyond that. Follow nested cursors
+        # if that proves too small.
+        page_size = self.settings.page_size
         data = await self._call(
             "GetUserAccess",
-            lambda: self.client.get_user_access(email, self.settings.page_size),
+            lambda: self.client.get_user_access(
+                email, page_size, min(page_size, RESOURCES_PER_GROUP)
+            ),
         )
         if not data.users.edges:
             raise UserNotFoundError(email)
@@ -257,7 +252,7 @@ class GraphQLTwingateReader:
         limit = self.settings.max_limit
         truncated |= len(groups) > limit or len(resources) > limit
         return UserAccess(
-            email=email,
+            email=data.users.edges[0].node.email or email,
             groups=groups[:limit],
             resources=list(resources.values())[:limit],
             truncated=truncated,

@@ -71,3 +71,18 @@ async def test_requests_only_remaining_items() -> None:
     fetch, calls = pages(10)
     await collect(fetch, limit=4, page_size=3)
     assert calls == [(None, 3), ("3", 1)]
+
+
+@pytest.mark.parametrize(("batch", "end_cursor"), [([], "c1"), ([1], None)])
+async def test_stalled_pagination_stops(batch: list[int], end_cursor: str | None) -> None:
+    calls = 0
+
+    async def fetch(cursor: str | None, size: int) -> tuple[list[int], PageInfo]:
+        nonlocal calls
+        calls += 1
+        return batch, PageInfo(has_next_page=True, end_cursor=end_cursor)
+
+    page = await collect(fetch, limit=10, page_size=3)
+    assert calls == 1
+    assert page.items == batch
+    assert page.truncated

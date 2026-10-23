@@ -1,5 +1,7 @@
-from pydantic import Field, SecretStr, ValidationError
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Annotated, Literal
+
+from pydantic import Field, SecretStr, ValidationError, field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -13,7 +15,20 @@ class Settings(BaseSettings):
     timeout_seconds: float = Field(default=30, gt=0)
     retry_attempts: int = Field(default=5, ge=1)
     mcp_http_token: SecretStr | None = Field(default=None, min_length=1)
-    log_level: str = "INFO"
+    mcp_allowed_hosts: Annotated[list[str], NoDecode] = []
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
+
+    @field_validator("mcp_allowed_hosts", mode="before")
+    @classmethod
+    def _split_hosts(cls, value: object) -> object:
+        if isinstance(value, str):
+            return [h.strip() for h in value.split(",") if h.strip()]
+        return value
+
+    @field_validator("log_level", mode="before")
+    @classmethod
+    def _upper_level(cls, value: object) -> object:
+        return value.upper() if isinstance(value, str) else value
 
     @property
     def endpoint(self) -> str:

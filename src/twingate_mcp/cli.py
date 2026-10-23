@@ -37,7 +37,7 @@ def load_settings() -> Settings:
     except ValidationError as exc:
         typer.echo(describe_errors(exc), err=True)
         raise typer.Exit(1) from None
-    logging.basicConfig(stream=sys.stderr, level=settings.log_level.upper())
+    logging.basicConfig(stream=sys.stderr, level=settings.log_level)
     return settings
 
 
@@ -114,7 +114,11 @@ async def _introspect(settings: Settings) -> str:
     if response.status_code in (401, 403):
         raise fail("Token invalid or lacks permission")
     response.raise_for_status()
-    return print_schema(build_client_schema(response.json()["data"]))
+    payload = response.json()
+    if payload.get("data") is None:
+        messages = "; ".join(str(e.get("message")) for e in payload.get("errors", []))
+        raise fail(f"Introspection failed: {messages or 'no data returned'}")
+    return print_schema(build_client_schema(payload["data"]))
 
 
 @schema_app.command()

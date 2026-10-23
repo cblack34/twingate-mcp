@@ -272,11 +272,46 @@ async def test_get_user_access(
             }
         }
     }
-    no_real_http.post(URL).mock(return_value=httpx.Response(200, json=payload))
-    access = await reader.get_user_access(email="alice@example.com")
+    route = no_real_http.post(URL).mock(return_value=httpx.Response(200, json=payload))
+    access = await reader.get_user_access(email="ALICE@example.com")
+    assert access.email == "alice@example.com"
     assert [g.name for g in access.groups] == ["eng-team", "ops-team"]
     assert [r.name for r in access.resources] == ["wiki", "ci"]
     assert access.truncated
+    variables = json.loads(route.calls[0].request.content)["variables"]
+    assert (variables["first"], variables["resourcesFirst"]) == (2, 2)
+
+
+async def test_get_user_access_bounds_nested_page(
+    reader: GraphQLTwingateReader, no_real_http: respx.MockRouter
+) -> None:
+    reader.settings = reader.settings.model_copy(update={"page_size": 100})
+    route = no_real_http.post(URL).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "data": {
+                    "users": {
+                        "edges": [
+                            {
+                                "node": {
+                                    "email": None,
+                                    "groups": {
+                                        "pageInfo": {"hasNextPage": False, "endCursor": None},
+                                        "edges": [],
+                                    },
+                                }
+                            }
+                        ]
+                    }
+                }
+            },
+        )
+    )
+    access = await reader.get_user_access(email="alice@example.com")
+    assert access.email == "alice@example.com"
+    variables = json.loads(route.calls[0].request.content)["variables"]
+    assert (variables["first"], variables["resourcesFirst"]) == (100, 25)
 
 
 async def test_get_user_access_unknown_email(

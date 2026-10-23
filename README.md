@@ -32,7 +32,8 @@ uv run twingate-mcp version
 | `TWINGATE_TIMEOUT_SECONDS` | `30` | Per request |
 | `TWINGATE_RETRY_ATTEMPTS` | `5` | |
 | `TWINGATE_MCP_HTTP_TOKEN` | unset | Required for non-loopback HTTP |
-| `TWINGATE_LOG_LEVEL` | `INFO` | Logs go to stderr |
+| `TWINGATE_MCP_ALLOWED_HOSTS` | unset | Extra comma-separated hostnames accepted in `Host`/`Origin` for HTTP, e.g. a Compose service name |
+| `TWINGATE_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` or `CRITICAL` (any case); logs go to stderr |
 
 ## 3. Use with Claude Desktop (stdio)
 
