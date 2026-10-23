@@ -42,7 +42,8 @@ async def _surface[T](call: Awaitable[T]) -> T:
         raise ToolError(str(exc)) from exc
 
 
-def build_server(settings: Settings, make_reader: Callable[[], TwingateReader]) -> MCPServer:
+# mccabe scores each nested tool function; there is no real branching here.
+def build_server(settings: Settings, make_reader: Callable[[], TwingateReader]) -> MCPServer:  # noqa: C901
     """Register the nine read-only tools. The reader is built on first tool call."""
     reader = cache(make_reader)
     read_only = ToolAnnotations(read_only_hint=True, destructive_hint=False, idempotent_hint=True)
