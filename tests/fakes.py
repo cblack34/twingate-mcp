@@ -38,6 +38,7 @@ class FakeTwingateReader:
         self.connectors = ConnectorFactory.batch(count)
         self.devices = DeviceFactory.batch(count)
         self.limits: list[int] = []
+        self.closed = False
 
     async def list_users(self, *, limit: int) -> Page[User]:
         self.limits.append(limit)
@@ -73,3 +74,6 @@ class FakeTwingateReader:
         groups = [NamedRef(id=g.id, name=g.name) for g in self.groups[:2]]
         resources = [NamedRef(id=r.id, name=r.name) for r in self.resources[:3]]
         return UserAccess(email=email, groups=groups, resources=resources, truncated=False)
+
+    async def aclose(self) -> None:
+        self.closed = True

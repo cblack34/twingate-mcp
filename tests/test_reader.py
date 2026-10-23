@@ -358,3 +358,8 @@ async def test_get_user_access_applies_max_limit(
     assert [g.name for g in access.groups] == ["g1"]
     assert [r.name for r in access.resources] == ["wiki"]
     assert access.truncated
+
+
+async def test_aclose_closes_http_client(reader: GraphQLTwingateReader) -> None:
+    await reader.aclose()
+    assert reader.http.is_closed

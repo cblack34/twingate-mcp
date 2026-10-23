@@ -67,6 +67,14 @@ def test_call_prints_json(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
     assert body["structured_content"]["truncated"] is True
 
 
+@pytest.mark.parametrize("tool", ["list_users", "no_such_tool"])
+def test_call_closes_reader(env: None, monkeypatch: pytest.MonkeyPatch, tool: str) -> None:
+    fake = FakeTwingateReader(count=1)
+    monkeypatch.setattr(reader, "graphql_reader", lambda _settings: fake)
+    runner.invoke(app, ["call", tool])
+    assert fake.closed
+
+
 def test_call_rejects_malformed_arg(env: None) -> None:
     result = runner.invoke(app, ["call", "list_users", "--arg", "limit"])
     assert result.exit_code == 1

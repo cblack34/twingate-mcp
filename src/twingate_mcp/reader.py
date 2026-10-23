@@ -39,6 +39,7 @@ class TwingateReader(Protocol):
     async def list_devices(self, *, limit: int) -> Page[Device]: ...
     async def get_resource_access(self, *, resource_id: str) -> ResourceAccess: ...
     async def get_user_access(self, *, email: str) -> UserAccess: ...
+    async def aclose(self) -> None: ...
 
 
 class UserNotFoundError(LookupError):
@@ -71,18 +72,16 @@ class GraphQLTwingateReader:
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
-        self.client = Client(
-            url=settings.endpoint,
-            # The generated HttpClient Protocol lists post() params as positional; httpx's are
-            # keyword-only, so pyright rejects a structurally compatible client.
-            http_client=cast(
-                HttpClient,
-                httpx.AsyncClient(
-                    headers={"X-API-KEY": settings.api_key.get_secret_value()},
-                    timeout=settings.timeout_seconds,
-                ),
-            ),
+        self.http = httpx.AsyncClient(
+            headers={"X-API-KEY": settings.api_key.get_secret_value()},
+            timeout=settings.timeout_seconds,
         )
+        # The generated HttpClient Protocol lists post() params as positional; httpx's are
+        # keyword-only, so pyright rejects a structurally compatible client.
+        self.client = Client(url=settings.endpoint, http_client=cast(HttpClient, self.http))
+
+    async def aclose(self) -> None:
+        await self.http.aclose()
 
     async def _call[T](self, operation: str, call: Callable[[], Awaitable[T]]) -> T:
         started = time.monotonic()

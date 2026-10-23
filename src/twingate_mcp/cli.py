@@ -77,13 +77,20 @@ def call(
         if not sep:
             raise fail(f"--arg must be key=value, got {item!r}")
         arguments[key] = value
-    server = build_server(settings, partial(reader.graphql_reader, settings))
     try:
-        result = anyio.run(server.call_tool, tool_name, arguments)
+        result = anyio.run(_call, settings, tool_name, arguments)
     except ToolError as exc:
         cause = exc.__cause__ or exc
         raise fail(f"{tool_name} failed: {cause}") from None
     typer.echo(json.dumps(result.model_dump(mode="json", exclude_none=True), indent=2))
+
+
+async def _call(settings: Settings, tool_name: str, arguments: dict[str, Any]) -> Any:
+    twingate = reader.graphql_reader(settings)
+    try:
+        return await build_server(settings, lambda: twingate).call_tool(tool_name, arguments)
+    finally:
+        await twingate.aclose()
 
 
 @app.command()
