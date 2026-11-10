@@ -1,4 +1,5 @@
 import json
+import logging
 
 import httpx
 import pytest
@@ -11,6 +12,7 @@ from tests.conftest import FAKE_ENV
 from tests.fakes import FakeTwingateReader
 from twingate_mcp import __version__, reader
 from twingate_mcp.cli import _stdio, app
+from twingate_mcp.server import demote_public_access_logs
 from twingate_mcp.settings import Settings
 
 runner = CliRunner()
@@ -219,3 +221,19 @@ def test_settings_parse_log_level_and_allowed_hosts(monkeypatch: pytest.MonkeyPa
     settings = Settings()  # pyright: ignore[reportCallIssue]
     assert settings.log_level == "DEBUG"
     assert settings.mcp_allowed_hosts == ["mcp.example.com", "svc.example.net"]
+
+
+def test_serve_http_tracks_log_level_and_demotes_probe_logs(
+    env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("TWINGATE_LOG_LEVEL", "DEBUG")
+    ran: list = []
+    monkeypatch.setattr("twingate_mcp.cli.anyio.run", lambda fn, *args: ran.append(fn))
+    access = logging.getLogger("uvicorn.access")
+    monkeypatch.setattr(access, "filters", list(access.filters))
+    monkeypatch.setattr(access, "level", access.level)
+    for _ in range(2):
+        assert runner.invoke(app, ["serve", "--transport", "http"]).exit_code == 0
+    assert ran[0].__self__.config.log_level == "debug"
+    assert access.filters.count(demote_public_access_logs) == 1
+    assert access.level == logging.DEBUG

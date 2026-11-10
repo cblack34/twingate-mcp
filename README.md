@@ -34,7 +34,7 @@ uv run twingate-mcp version
 | `TWINGATE_CALL_TIMEOUT_SECONDS` | `50` | Deadline for one tool call, including retries and pagination. Keep it below your client or load balancer timeout |
 | `TWINGATE_MCP_HTTP_TOKEN` | unset | Required for non-loopback HTTP |
 | `TWINGATE_MCP_ALLOWED_HOSTS` | unset | Extra comma-separated hostnames accepted in `Host`/`Origin` for HTTP, e.g. a Compose service name |
-| `TWINGATE_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` or `CRITICAL` (any case); logs go to stderr |
+| `TWINGATE_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` or `CRITICAL` (any case); logs go to stderr; access logs for `/healthz`, `/readyz` and `/metrics` are `DEBUG` |
 
 ## 3. Use with Claude Desktop (stdio)
 

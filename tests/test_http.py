@@ -1,3 +1,5 @@
+import logging
+
 import httpx
 import pytest
 from prometheus_client import CONTENT_TYPE_LATEST
@@ -7,7 +9,13 @@ from starlette.testclient import TestClient
 from starlette.types import Receive, Scope, Send
 
 from tests.fakes import FakeTwingateReader
-from twingate_mcp.server import BearerTokenMiddleware, build_server, http_app, is_loopback
+from twingate_mcp.server import (
+    BearerTokenMiddleware,
+    build_server,
+    demote_public_access_logs,
+    http_app,
+    is_loopback,
+)
 from twingate_mcp.settings import Settings
 
 
@@ -170,3 +178,31 @@ def test_http_app_runs_on_shutdown(settings: Settings) -> None:
     with TestClient(app):
         assert calls == []
     assert calls == ["closed"]
+
+
+def access_levels(level: int, path: str) -> list[int]:
+    logger = logging.getLogger("test.access")
+    logger.propagate = False
+    logger.setLevel(level)
+    logger.filters = [demote_public_access_logs]
+    seen: list[int] = []
+    handler = logging.Handler()
+    handler.emit = lambda record: seen.append(record.levelno)
+    logger.handlers = [handler]
+    logger.info('%s - "%s %s HTTP/%s" %d', "127.0.0.1:1", "GET", path, "1.1", 200)
+    return seen
+
+
+@pytest.mark.parametrize("path", ["/healthz", "/readyz", "/metrics", "/metrics?x=1"])
+def test_public_access_logs_dropped_at_info(path: str) -> None:
+    assert access_levels(logging.INFO, path) == []
+
+
+@pytest.mark.parametrize("path", ["/healthz", "/metrics?x=1"])
+def test_public_access_logs_kept_as_debug_at_debug(path: str) -> None:
+    assert access_levels(logging.DEBUG, path) == [logging.DEBUG]
+
+
+@pytest.mark.parametrize("path", ["/mcp", "/healthz/extra", "/mcp?next=/healthz"])
+def test_other_access_logs_stay_info(path: str) -> None:
+    assert access_levels(logging.INFO, path) == [logging.INFO]
