@@ -63,7 +63,7 @@ uv run twingate-mcp serve --transport http            # 127.0.0.1:8000, endpoint
 
 Binding to anything other than a loopback address fails unless `TWINGATE_MCP_HTTP_TOKEN` is set.
 With it set, every request must send `Authorization: Bearer <token>`, except the `/healthz` and
-`/readyz` probes, which are unauthenticated. DNS-rebinding protection only
+`/readyz` probes and `/metrics`, which are unauthenticated. DNS-rebinding protection only
 accepts `Host` headers matching the bind address.
 
 > **Security caveat:** the bearer token is a single shared secret, not user authentication. Anyone
@@ -114,6 +114,11 @@ the local machine.
   (`twingate-mcp.<namespace>.svc.cluster.local`) and any Ingress host. Other `Host` headers are rejected.
 - Probe with `httpGet` on port 8000: `/healthz` for liveness and `/readyz` for readiness. Both skip the
   bearer token and never call Twingate.
+- `/metrics` (Prometheus format, unauthenticated) exposes tool-call and Twingate API metrics; scrape it
+  with Prometheus or Datadog's OpenMetrics check. Labels are fixed names only, never user data:
+  `twingate_mcp_tool_calls_total{tool,outcome}`, `twingate_mcp_tool_call_duration_seconds{tool}`,
+  `twingate_api_requests_total{operation,outcome}`, `twingate_api_request_duration_seconds{operation}`,
+  and `stamina_retries_total` for upstream retries.
 - HTTP is stateless, so any number of replicas works without sticky sessions.
 
 ## Tools

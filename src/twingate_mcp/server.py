@@ -1,5 +1,6 @@
 import hmac
 import ipaddress
+import time
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from functools import cache, partial
@@ -10,6 +11,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import Field, SecretStr
 from starlette.applications import Starlette
 from starlette.datastructures import Headers
@@ -18,6 +20,7 @@ from starlette.responses import PlainTextResponse, Response
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from twingate_mcp import __version__
+from twingate_mcp.metrics import TOOL_CALLS, TOOL_DURATION
 from twingate_mcp.models import (
     Connector,
     Device,
@@ -38,15 +41,27 @@ Limit = Annotated[
 ]
 
 
-async def _surface[T](call: Awaitable[T], seconds: float) -> T:
+async def _surface[T](tool: str, call: Awaitable[T], seconds: float) -> T:
     """Pass auth, not-found, and timeout messages to the client; MCPServer hides other text."""
+    started = time.monotonic()
+    outcome = "error"
     try:
         with anyio.fail_after(seconds):
-            return await call
-    except (TwingateAuthError, LookupError) as exc:
+            result = await call
+        outcome = "ok"
+        return result
+    except TwingateAuthError as exc:
+        outcome = "auth_error"
+        raise ToolError(str(exc)) from exc
+    except LookupError as exc:
+        outcome = "not_found"
         raise ToolError(str(exc)) from exc
     except TimeoutError:
+        outcome = "timeout"
         raise ToolError(f"Twingate API did not respond within {seconds:g}s") from None
+    finally:
+        TOOL_CALLS.labels(tool, outcome).inc()
+        TOOL_DURATION.labels(tool).observe(time.monotonic() - started)
 
 
 # mccabe scores each nested tool function; there is no real branching here.
@@ -71,19 +86,19 @@ def build_server(settings: Settings, make_reader: Callable[[], TwingateReader]) 
         Use to browse who is in the network; use get_user to look up one email.
         Results are capped by `limit`; if `truncated` is true, more existed than were
         returned, so do not treat the list as complete."""
-        return await surface(reader().list_users(limit=cap(limit)))
+        return await surface("list_users", reader().list_users(limit=cap(limit)))
 
     @tool
     async def get_user(email: str) -> User | None:
         """Look up one Twingate user by exact email. Returns null if no user has that email."""
-        return await surface(reader().get_user(email=email))
+        return await surface("get_user", reader().get_user(email=email))
 
     @tool
     async def list_groups(limit: Limit = None) -> Page[Group]:
         """List Twingate groups: id, name, type, whether active, and member count.
         Results are capped by `limit`; if `truncated` is true, more existed than were
         returned, so do not treat the list as complete."""
-        return await surface(reader().list_groups(limit=cap(limit)))
+        return await surface("list_groups", reader().list_groups(limit=cap(limit)))
 
     @tool
     async def list_resources(limit: Limit = None) -> Page[Resource]:
@@ -91,14 +106,16 @@ def build_server(settings: Settings, make_reader: Callable[[], TwingateReader]) 
         Use get_resource_access with an id to see who can reach one.
         Results are capped by `limit`; if `truncated` is true, more existed than were
         returned, so do not treat the list as complete."""
-        return await surface(reader().list_resources(limit=cap(limit)))
+        return await surface("list_resources", reader().list_resources(limit=cap(limit)))
 
     @tool
     async def list_remote_networks(limit: Limit = None) -> Page[RemoteNetwork]:
         """List remote networks: id, name, location, whether active, and connector count.
         Results are capped by `limit`; if `truncated` is true, more existed than were
         returned, so do not treat the list as complete."""
-        return await surface(reader().list_remote_networks(limit=cap(limit)))
+        return await surface(
+            "list_remote_networks", reader().list_remote_networks(limit=cap(limit))
+        )
 
     @tool
     async def list_connectors(limit: Limit = None) -> Page[Connector]:
@@ -106,26 +123,28 @@ def build_server(settings: Settings, make_reader: Callable[[], TwingateReader]) 
         Use to check connector health.
         Results are capped by `limit`; if `truncated` is true, more existed than were
         returned, so do not treat the list as complete."""
-        return await surface(reader().list_connectors(limit=cap(limit)))
+        return await surface("list_connectors", reader().list_connectors(limit=cap(limit)))
 
     @tool
     async def list_devices(limit: Limit = None) -> Page[Device]:
         """List devices: id, name, OS, owning user's email, trust status, and last seen time.
         Results are capped by `limit`; if `truncated` is true, more existed than were
         returned, so do not treat the list as complete."""
-        return await surface(reader().list_devices(limit=cap(limit)))
+        return await surface("list_devices", reader().list_devices(limit=cap(limit)))
 
     @tool
     async def get_resource_access(resource_id: str) -> ResourceAccess:
         """Show which groups and service accounts have access to one resource (by resource id
         from list_resources). If `truncated` is true the principal list is incomplete."""
-        return await surface(reader().get_resource_access(resource_id=resource_id))
+        return await surface(
+            "get_resource_access", reader().get_resource_access(resource_id=resource_id)
+        )
 
     @tool
     async def get_user_access(email: str) -> UserAccess:
         """Show a user's groups and the resources reachable through those groups.
         Use to answer "what can this person reach?". If `truncated` is true lists are partial."""
-        return await surface(reader().get_user_access(email=email))
+        return await surface("get_user_access", reader().get_user_access(email=email))
 
     return server
 
@@ -139,18 +158,18 @@ def is_loopback(host: str) -> bool:
         return False
 
 
-PROBE_PATHS = frozenset({"/healthz", "/readyz"})
+PUBLIC_PATHS = frozenset({"/healthz", "/readyz", "/metrics"})
 
 
 class BearerTokenMiddleware:
-    """Shared-secret guard: HTTP requests, except probes, need `Authorization: Bearer <token>`."""
+    """Shared-secret guard: HTTP needs `Authorization: Bearer <token>`, except on PUBLIC_PATHS."""
 
     def __init__(self, app: ASGIApp, token: SecretStr) -> None:
         self.app = app
         self.expected = token.get_secret_value().encode()
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] == "http" and scope["path"] not in PROBE_PATHS:
+        if scope["type"] == "http" and scope["path"] not in PUBLIC_PATHS:
             scheme, _, supplied = Headers(scope=scope).get("authorization", "").partition(" ")
             if scheme.lower() != "bearer" or not hmac.compare_digest(
                 supplied.encode(), self.expected
@@ -193,8 +212,12 @@ def http_app(
     async def probe(request: Request) -> Response:
         return PlainTextResponse("ok")
 
-    for path in PROBE_PATHS:
+    async def metrics(request: Request) -> Response:
+        return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+    for path in ("/healthz", "/readyz"):
         server.custom_route(path, methods=["GET"])(probe)
+    server.custom_route("/metrics", methods=["GET"])(metrics)
     app = server.streamable_http_app(transport_security=security, host=host, stateless_http=True)
     if settings.mcp_http_token is not None:
         app.add_middleware(BearerTokenMiddleware, token=settings.mcp_http_token)

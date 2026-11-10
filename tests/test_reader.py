@@ -8,6 +8,7 @@ import pytest
 import respx
 import stamina
 from mcp import Client
+from prometheus_client import REGISTRY
 
 from tests import factories as f
 from tests.conftest import FAKE_ENV
@@ -91,6 +92,23 @@ async def test_429_with_retry_after_then_success(
     assert route.call_count == 2
     assert page.items[0].state == nodes[0].state.value
     assert page.items[0].remote_network in f.FAKE_NETWORKS
+
+
+async def test_api_request_metrics(
+    reader: GraphQLTwingateReader, no_real_http: respx.MockRouter
+) -> None:
+    def count(outcome: str) -> float:
+        labels = {"operation": "ListDevices", "outcome": outcome}
+        return REGISTRY.get_sample_value("twingate_api_requests_total", labels) or 0
+
+    ok, unauthorized = count("ok"), count("401")
+    no_real_http.post(URL).mock(
+        side_effect=[*pages("devices", f.ListDevicesNodeFactory.batch(1), 2), httpx.Response(401)]
+    )
+    await reader.list_devices(limit=5)
+    with pytest.raises(TwingateAuthError):
+        await reader.list_devices(limit=5)
+    assert (count("ok"), count("401")) == (ok + 1, unauthorized + 1)
 
 
 async def test_401_surfaces_clear_error(

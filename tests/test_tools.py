@@ -1,9 +1,10 @@
 import anyio
 import pytest
 from mcp import Client
+from prometheus_client import REGISTRY
 
 from tests.fakes import FakeTwingateReader
-from twingate_mcp.models import Page, User
+from twingate_mcp.models import Group, Page, User
 from twingate_mcp.reader import TwingateReader
 from twingate_mcp.server import build_server
 from twingate_mcp.settings import Settings
@@ -129,3 +130,28 @@ async def test_tool_call_deadline(settings: Settings) -> None:
         result = await client.call_tool("list_users", {})
     assert result.is_error
     assert "did not respond within 0.05s" in str(result.content)
+
+
+def tool_calls(tool: str, outcome: str) -> float:
+    labels = {"tool": tool, "outcome": outcome}
+    return REGISTRY.get_sample_value("twingate_mcp_tool_calls_total", labels) or 0
+
+
+async def test_tool_call_metrics_ok(client: Client) -> None:
+    before = tool_calls("list_users", "ok")
+    async with client:
+        await client.call_tool("list_users", {})
+    assert tool_calls("list_users", "ok") == before + 1
+
+
+async def test_tool_call_metrics_timeout(settings: Settings) -> None:
+    class Slow(FakeTwingateReader):
+        async def list_groups(self, *, limit: int) -> Page[Group]:
+            await anyio.sleep(10)
+            raise AssertionError("deadline not enforced")
+
+    settings.call_timeout_seconds = 0.05
+    before = tool_calls("list_groups", "timeout")
+    async with Client(build_server(settings, Slow)) as client:
+        await client.call_tool("list_groups", {})
+    assert tool_calls("list_groups", "timeout") == before + 1

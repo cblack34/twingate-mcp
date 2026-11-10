@@ -7,6 +7,7 @@ import httpx
 
 from twingate_mcp._generated import Client
 from twingate_mcp._generated.async_base_client import HttpClient
+from twingate_mcp.metrics import API_DURATION, API_REQUESTS
 from twingate_mcp.models import (
     Connector,
     Device,
@@ -98,8 +99,10 @@ class GraphQLTwingateReader:
             outcome = str(getattr(exc, "status_code", type(exc).__name__))
             raise
         finally:
-            elapsed = (time.monotonic() - started) * 1000
-            log.info("twingate %s %s in %.0fms", operation, outcome, elapsed)
+            elapsed = time.monotonic() - started
+            API_REQUESTS.labels(operation, outcome).inc()
+            API_DURATION.labels(operation).observe(elapsed)
+            log.info("twingate %s %s in %.0fms", operation, outcome, elapsed * 1000)
 
     async def list_users(self, *, limit: int) -> Page[User]:
         async def fetch(after: str | None, first: int) -> tuple[list[User], PageInfo]:
