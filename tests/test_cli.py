@@ -4,6 +4,7 @@ import httpx
 import pytest
 import respx
 from graphql import build_schema, get_introspection_query, graphql_sync
+from pydantic import ValidationError
 from typer.testing import CliRunner
 
 from tests.conftest import FAKE_ENV
@@ -120,6 +121,37 @@ def test_empty_http_token_rejected(env: None, monkeypatch: pytest.MonkeyPatch) -
     result = runner.invoke(app, ["serve", "--transport", "http", "--host", "0.0.0.0"])
     assert result.exit_code == 1
     assert "TWINGATE_MCP_HTTP_TOKEN" in result.output
+
+
+@pytest.mark.parametrize(
+    "token", ["\n", "\r\n", " ", "\t \n"], ids=["newline", "crlf", "space", "mixed"]
+)
+def test_whitespace_only_http_token_rejected(
+    env: None, monkeypatch: pytest.MonkeyPatch, token: str
+) -> None:
+    monkeypatch.setenv("TWINGATE_MCP_HTTP_TOKEN", token)
+    with pytest.raises(ValidationError, match="mcp_http_token"):
+        Settings()  # pyright: ignore[reportCallIssue]
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        "shared-secret\n",
+        "shared-secret\r\n",
+        "shared-secret ",
+        "\tshared-secret",
+        "  shared-secret\n\n",
+    ],
+    ids=["newline", "crlf", "trailing-space", "leading-tab", "mixed"],
+)
+def test_http_token_whitespace_stripped(
+    env: None, monkeypatch: pytest.MonkeyPatch, token: str
+) -> None:
+    monkeypatch.setenv("TWINGATE_MCP_HTTP_TOKEN", token)
+    settings = Settings()  # pyright: ignore[reportCallIssue]
+    assert settings.mcp_http_token is not None
+    assert settings.mcp_http_token.get_secret_value() == "shared-secret"
 
 
 @pytest.mark.parametrize("network", ["example.net/", "collector.example.com/#", "a@b"])

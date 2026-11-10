@@ -173,7 +173,7 @@ def http_app(server: MCPServer, settings: Settings, host: str) -> ASGIApp:
             for port in ("", ":*")
         ],
     )
-    app = server.streamable_http_app(transport_security=security, host=host)
+    app = server.streamable_http_app(transport_security=security, host=host, stateless_http=True)
     if settings.mcp_http_token is not None:
         app.add_middleware(BearerTokenMiddleware, token=settings.mcp_http_token)
     return app
