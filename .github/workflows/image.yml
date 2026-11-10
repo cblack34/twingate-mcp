@@ -27,47 +27,112 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
-      # Build only. To publish later: add a registry login step, set `push: true`, and give
-      # this job `packages: write` (GHCR) or the registry's credentials.
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          load: true
+          platforms: linux/amd64,linux/arm64
           push: false
-          tags: ${{ env.IMAGE }}
+          outputs: type=oci,dest=image.tar
+          labels: org.opencontainers.image.source=https://github.com/cblack34/twingate-mcp
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Smoke test
-        run: docker run --rm "$IMAGE" version
+      - name: Extract per-platform images
+        run: |
+          for arch in amd64 arm64; do
+            skopeo copy --override-arch "$arch" oci-archive:image.tar "oci:scan-$arch:img"
+          done
 
-      # Full report to the Security tab; never fails the job on its own.
-      - name: Trivy scan (SARIF)
+      - name: Smoke test
+        run: |
+          skopeo copy oci:scan-amd64:img "docker-daemon:$IMAGE"
+          docker run --rm "$IMAGE" version
+
+      # Full reports to the Security tab; never fail the job on their own.
+      - name: Trivy scan amd64 (SARIF)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: ${{ env.IMAGE }}
+          input: scan-amd64
           version: v0.76.1
           scanners: vuln
           format: sarif
-          output: trivy-results.sarif
+          output: trivy-amd64.sarif
 
-      - name: Upload SARIF
-        if: always() && hashFiles('trivy-results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
-        with:
-          sarif_file: trivy-results.sarif
-          category: trivy-image
-
-      - name: Trivy scan (fail on fixable HIGH/CRITICAL)
+      - name: Trivy scan arm64 (SARIF)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: ${{ env.IMAGE }}
-          version: v0.76.1
+          input: scan-arm64
+          scanners: vuln
+          format: sarif
+          output: trivy-arm64.sarif
+          skip-setup-trivy: true
+
+      - name: Upload SARIF amd64
+        if: always() && hashFiles('trivy-amd64.sarif') != ''
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: trivy-amd64.sarif
+          category: trivy-image-amd64
+
+      - name: Upload SARIF arm64
+        if: always() && hashFiles('trivy-arm64.sarif') != ''
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: trivy-arm64.sarif
+          category: trivy-image-arm64
+
+      - name: Trivy gate amd64 (fail on fixable HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          input: scan-amd64
           scanners: vuln
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: "1"
           format: table
           skip-setup-trivy: true
+
+      - name: Trivy gate arm64 (fail on fixable HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          input: scan-arm64
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+          skip-setup-trivy: true
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: image
+          path: image.tar
+          retention-days: 1
+
+  publish:
+    needs: build-and-scan
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      packages: write
+    env:
+      IMAGE: ghcr.io/cblack34/twingate-mcp
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: image
+
+      - name: Push scanned archive
+        run: |
+          want=sha256:$(skopeo inspect --raw oci-archive:image.tar | sha256sum | cut -d' ' -f1)
+          for tag in "sha-$GITHUB_SHA" latest; do
+            skopeo copy --all --digestfile digest --dest-creds "$GITHUB_ACTOR:$GITHUB_TOKEN" oci-archive:image.tar "docker://$IMAGE:$tag"
+            echo "$tag $(cat digest)"
+            test "$(cat digest)" = "$want"
+          done
