@@ -87,3 +87,5 @@ Short ADR-style log. Newest last.
   requests, under the default 30s `terminationGracePeriodSeconds`.
 - **Health endpoints.** `/healthz` and `/readyz` return 200 without the bearer token and never call
   Twingate, so an upstream outage does not fail readiness and pull every pod.
+- **Metrics.** `/metrics` is unauthenticated by maintainer decision and meant for in-cluster scraping.
+  Labels are fixed tool and operation names and outcomes, so no user data is exposed.
