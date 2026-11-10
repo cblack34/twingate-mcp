@@ -10,7 +10,7 @@ from typer.testing import CliRunner
 from tests.conftest import FAKE_ENV
 from tests.fakes import FakeTwingateReader
 from twingate_mcp import __version__, reader
-from twingate_mcp.cli import app
+from twingate_mcp.cli import _stdio, app
 from twingate_mcp.settings import Settings
 
 runner = CliRunner()
@@ -73,6 +73,28 @@ def test_call_closes_reader(env: None, monkeypatch: pytest.MonkeyPatch, tool: st
     fake = FakeTwingateReader(count=1)
     monkeypatch.setattr(reader, "graphql_reader", lambda _settings: fake)
     runner.invoke(app, ["call", tool])
+    assert fake.closed
+
+
+class _StubServer:
+    def __init__(self, error: Exception | None) -> None:
+        self.error = error
+
+    async def run_stdio_async(self) -> None:
+        if self.error:
+            raise self.error
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("error", [None, RuntimeError("boom")])
+async def test_stdio_closes_reader(error: Exception | None) -> None:
+    fake = FakeTwingateReader(count=1)
+    server = _StubServer(error)
+    if error:
+        with pytest.raises(RuntimeError, match="boom"):
+            await _stdio(server, fake)  # pyright: ignore[reportArgumentType]
+    else:
+        await _stdio(server, fake)  # pyright: ignore[reportArgumentType]
     assert fake.closed
 
 

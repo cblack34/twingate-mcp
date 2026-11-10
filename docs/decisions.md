@@ -78,3 +78,10 @@ Short ADR-style log. Newest last.
   error messages instead of a `KeyError`. `TWINGATE_LOG_LEVEL` accepts `DEBUG`/`INFO`/`WARNING`/
   `ERROR`/`CRITICAL` in any case and is rejected at startup otherwise. `get_user_access` returns the
   stored email, not the caller's casing. The API key header is set once, on the `httpx.AsyncClient`.
+- **Review fixes (5).** HTTP runs stateless, so replicas need no sticky sessions or shared store.
+  `TWINGATE_MCP_HTTP_TOKEN` is stripped at load, and an all-whitespace token is rejected. Each tool
+  call has a wall-clock deadline, `TWINGATE_CALL_TIMEOUT_SECONDS` (default 50, under a 60s load
+  balancer idle timeout), covering retries and pagination; the per-request retry budget is unchanged.
+  `serve` closes the reader's HTTP client on exit: in the app lifespan for HTTP, because uvicorn
+  re-raises SIGTERM after shutdown, and in a `finally` for stdio. Uvicorn waits at most 20s for open
+  requests, under the default 30s `terminationGracePeriodSeconds`.

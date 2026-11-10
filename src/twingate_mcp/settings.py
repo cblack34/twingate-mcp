@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     max_limit: int = Field(default=1000, ge=1)
     timeout_seconds: float = Field(default=30, gt=0)
     retry_attempts: int = Field(default=5, ge=1)
+    call_timeout_seconds: float = Field(default=50, gt=0)
     mcp_http_token: SecretStr | None = Field(default=None, min_length=1)
     mcp_allowed_hosts: Annotated[list[str], NoDecode] = []
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"

@@ -29,8 +29,9 @@ uv run twingate-mcp version
 | `TWINGATE_PAGE_SIZE` | `100` | 1–100 |
 | `TWINGATE_DEFAULT_LIMIT` | `100` | Items per tool call when `limit` is omitted |
 | `TWINGATE_MAX_LIMIT` | `1000` | Hard cap per tool call |
-| `TWINGATE_TIMEOUT_SECONDS` | `30` | Per request |
+| `TWINGATE_TIMEOUT_SECONDS` | `30` | Per request to the Twingate API |
 | `TWINGATE_RETRY_ATTEMPTS` | `5` | |
+| `TWINGATE_CALL_TIMEOUT_SECONDS` | `50` | Deadline for one tool call, including retries and pagination. Keep it below your client or load balancer timeout |
 | `TWINGATE_MCP_HTTP_TOKEN` | unset | Required for non-loopback HTTP |
 | `TWINGATE_MCP_ALLOWED_HOSTS` | unset | Extra comma-separated hostnames accepted in `Host`/`Origin` for HTTP, e.g. a Compose service name |
 | `TWINGATE_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` or `CRITICAL` (any case); logs go to stderr |
@@ -103,6 +104,15 @@ docker compose up -d     # http://localhost:8000/mcp, published on 127.0.0.1 onl
 Inside the container the server binds `0.0.0.0`, so the bearer token is mandatory. It accepts
 `localhost` and `127.0.0.1` Host headers; put a TLS reverse proxy in front before exposing it beyond
 the local machine.
+
+### Kubernetes
+
+- The image defaults to stdio, which exits immediately in a pod. Override the container args:
+  `args: ["serve", "--transport", "http", "--host", "0.0.0.0"]`.
+- Set `TWINGATE_MCP_ALLOWED_HOSTS` to every hostname clients use, such as the Service DNS name
+  (`twingate-mcp.<namespace>.svc.cluster.local`) and any Ingress host. Other `Host` headers are rejected.
+- Every HTTP path requires the bearer token, so use a `tcpSocket` probe on port 8000, not `httpGet`.
+- HTTP is stateless, so any number of replicas works without sticky sessions.
 
 ## Tools
 

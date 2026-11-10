@@ -10,6 +10,7 @@ import anyio
 import httpx
 import typer
 import uvicorn
+from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import ValidationError
 
@@ -56,12 +57,21 @@ def serve(
     settings = load_settings()
     if transport is Transport.http and not is_loopback(host) and settings.mcp_http_token is None:
         raise fail(f"Refusing to bind {host}: set TWINGATE_MCP_HTTP_TOKEN for non-loopback hosts.")
-    server = build_server(settings, partial(reader.graphql_reader, settings))
+    twingate = reader.graphql_reader(settings)
+    server = build_server(settings, lambda: twingate)
     if transport is Transport.stdio:
-        server.run("stdio")
+        anyio.run(_stdio, server, twingate)
         return
-    config = uvicorn.Config(http_app(server, settings, host), host=host, port=port)
+    app = http_app(server, settings, host, on_shutdown=twingate.aclose)
+    config = uvicorn.Config(app, host=host, port=port, timeout_graceful_shutdown=20)
     anyio.run(uvicorn.Server(config).serve)
+
+
+async def _stdio(server: MCPServer, twingate: reader.TwingateReader) -> None:
+    try:
+        await server.run_stdio_async()
+    finally:
+        await twingate.aclose()
 
 
 @app.command()

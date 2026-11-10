@@ -123,3 +123,15 @@ def test_extra_allowed_hosts(settings: Settings) -> None:
         )
     assert host.status_code != 421
     assert origin.status_code != 403
+
+
+def test_http_app_runs_on_shutdown(settings: Settings) -> None:
+    calls: list[str] = []
+
+    async def on_shutdown() -> None:
+        calls.append("closed")
+
+    app = http_app(build_server(settings, FakeTwingateReader), settings, "127.0.0.1", on_shutdown)
+    with TestClient(app):
+        assert calls == []
+    assert calls == ["closed"]

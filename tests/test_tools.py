@@ -1,7 +1,9 @@
+import anyio
 import pytest
 from mcp import Client
 
 from tests.fakes import FakeTwingateReader
+from twingate_mcp.models import Page, User
 from twingate_mcp.reader import TwingateReader
 from twingate_mcp.server import build_server
 from twingate_mcp.settings import Settings
@@ -114,3 +116,16 @@ async def test_get_user_access(client: Client, fake: FakeTwingateReader) -> None
     assert access["email"] == "alice@example.com"
     assert [g["id"] for g in access["groups"]] == [g.id for g in fake.groups[:2]]
     assert len(access["resources"]) == 3
+
+
+async def test_tool_call_deadline(settings: Settings) -> None:
+    class Slow(FakeTwingateReader):
+        async def list_users(self, *, limit: int) -> Page[User]:
+            await anyio.sleep(10)
+            raise AssertionError("deadline not enforced")
+
+    settings.call_timeout_seconds = 0.05
+    async with Client(build_server(settings, Slow)) as client:
+        result = await client.call_tool("list_users", {})
+    assert result.is_error
+    assert "did not respond within 0.05s" in str(result.content)
