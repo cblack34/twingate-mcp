@@ -13,7 +13,8 @@ from mcp.types import ToolAnnotations
 from pydantic import Field, SecretStr
 from starlette.applications import Starlette
 from starlette.datastructures import Headers
-from starlette.responses import PlainTextResponse
+from starlette.requests import Request
+from starlette.responses import PlainTextResponse, Response
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from twingate_mcp import __version__
@@ -138,15 +139,18 @@ def is_loopback(host: str) -> bool:
         return False
 
 
+PROBE_PATHS = frozenset({"/healthz", "/readyz"})
+
+
 class BearerTokenMiddleware:
-    """Shared-secret guard: every HTTP request needs `Authorization: Bearer <token>`."""
+    """Shared-secret guard: HTTP requests, except probes, need `Authorization: Bearer <token>`."""
 
     def __init__(self, app: ASGIApp, token: SecretStr) -> None:
         self.app = app
         self.expected = token.get_secret_value().encode()
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] == "http":
+        if scope["type"] == "http" and scope["path"] not in PROBE_PATHS:
             scheme, _, supplied = Headers(scope=scope).get("authorization", "").partition(" ")
             if scheme.lower() != "bearer" or not hmac.compare_digest(
                 supplied.encode(), self.expected
@@ -185,6 +189,12 @@ def http_app(
             for port in ("", ":*")
         ],
     )
+
+    async def probe(request: Request) -> Response:
+        return PlainTextResponse("ok")
+
+    for path in PROBE_PATHS:
+        server.custom_route(path, methods=["GET"])(probe)
     app = server.streamable_http_app(transport_security=security, host=host, stateless_http=True)
     if settings.mcp_http_token is not None:
         app.add_middleware(BearerTokenMiddleware, token=settings.mcp_http_token)
