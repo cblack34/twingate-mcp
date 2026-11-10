@@ -63,8 +63,9 @@ uv run twingate-mcp serve --transport http            # 127.0.0.1:8000, endpoint
 
 Binding to anything other than a loopback address fails unless `TWINGATE_MCP_HTTP_TOKEN` is set.
 With it set, every request must send `Authorization: Bearer <token>`, except the `/healthz` and
-`/readyz` probes and `/metrics`, which are unauthenticated. DNS-rebinding protection only
-accepts `Host` headers matching the bind address.
+`/readyz` probes and `/metrics`, which are unauthenticated. DNS-rebinding protection on `/mcp`
+accepts only `Host` headers matching the bind address (plus loopback names on a `0.0.0.0` bind)
+and `TWINGATE_MCP_ALLOWED_HOSTS`.
 
 > **Security caveat:** the bearer token is a single shared secret, not user authentication. Anyone
 > holding it can read everything the Twingate API token can read. Use HTTPS in front of it (a reverse
@@ -80,15 +81,15 @@ docker build -t twingate-mcp:local .
 ```
 
 Or pull a published image and tag it for the examples below. Every `main` build is published as
-`sha-<full commit SHA>`, and each release as its version (e.g. `0.1.0`). There is no `latest` tag.
+`sha-<full commit SHA>` (tags are listed on the repo's GHCR package page). There is no `latest` tag.
 
 ```sh
-docker pull ghcr.io/cblack34/twingate-mcp:0.1.0
-docker tag ghcr.io/cblack34/twingate-mcp:0.1.0 twingate-mcp:local
+docker pull ghcr.io/cblack34/twingate-mcp:sha-<commit>
+docker tag ghcr.io/cblack34/twingate-mcp:sha-<commit> twingate-mcp:local
 ```
 
-To release, push a `vX.Y.Z` tag on a commit that `main` already published; the scanned
-`sha-<commit>` image is copied to `X.Y.Z` without a rebuild.
+Release tags `X.Y.Z` are created from `vX.Y.Z` git tags: pushing one on a commit that `main` already
+published copies the scanned `sha-<commit>` image to `X.Y.Z` without a rebuild.
 
 **stdio (Claude Desktop):** use `docker` as the command:
 
@@ -114,8 +115,10 @@ the local machine.
 
 - The image defaults to stdio, which exits immediately in a pod. Override the container args:
   `args: ["serve", "--transport", "http", "--host", "0.0.0.0"]`.
-- Set `TWINGATE_MCP_ALLOWED_HOSTS` to every hostname clients use, such as the Service DNS name
-  (`twingate-mcp.<namespace>.svc.cluster.local`) and any Ingress host. Other `Host` headers are rejected.
+- Set `TWINGATE_MCP_ALLOWED_HOSTS` to every name clients use. Entries are bare hostnames, not URLs; they
+  match the `Host` header exactly (a `name:*` variant for any port is added automatically) and the
+  matching `http(s)://` Origins are generated. There are no wildcards or suffix matches. List e.g. `twingate-mcp,twingate-mcp.<ns>,twingate-mcp.<ns>.svc,twingate-mcp.<ns>.svc.cluster.local`
+  plus any Ingress/LB host. A missing name makes `/mcp` reject requests while the probes still pass.
 - Probe with `httpGet` on port 8000: `/healthz` for liveness and `/readyz` for readiness. Both skip the
   bearer token and never call Twingate.
 - `/metrics` (Prometheus format, unauthenticated) exposes tool-call and Twingate API metrics; scrape it
@@ -124,6 +127,26 @@ the local machine.
   `twingate_api_requests_total{operation,outcome}`, `twingate_api_request_duration_seconds{operation}`,
   and `stamina_retries_total` for upstream retries.
 - HTTP is stateless, so any number of replicas works without sticky sessions.
+- Route only `/mcp` through any Ingress/LB. `/healthz`, `/readyz` and `/metrics` are unauthenticated:
+  keep them in-cluster by exposing only `/mcp` at the Ingress. A NetworkPolicy can't separate paths on
+  port 8000; use it only to limit which peers reach the pod. The bearer token is one shared secret, so
+  keep the Service internal.
+- Settings are read once at startup: rotating `TWINGATE_API_KEY` or `TWINGATE_MCP_HTTP_TOKEN` needs a pod restart.
+- Shutdown: a tool call can run up to `TWINGATE_CALL_TIMEOUT_SECONDS` (50s), but uvicorn waits only 20s
+  after SIGTERM and `/readyz` keeps returning 200 meanwhile. Add a ~5s `preStop` sleep so the pod leaves
+  the Service endpoints first; in-flight calls longer than ~20s can still be cut on rollout.
+- Starting resources: the Compose limits, 0.5 CPU and 256Mi memory.
+- The image runs as uid/gid 10001 (numeric), so `runAsNonRoot: true` works. The app writes nothing to
+  disk, so `readOnlyRootFilesystem: true` works too.
+
+#### Argo CD Image Updater
+
+- Deploy immutable tags only (`sha-<commit>` or `X.Y.Z`); there is no `latest`.
+- For `main` builds use the `newest-build` update strategy with the tag filter
+  `regexp:^sha-[0-9a-f]{40}$`. Once releases exist, switch to `semver` with
+  `regexp:^[0-9]+\.[0-9]+\.[0-9]+$`.
+- Images are multi-arch (`linux/amd64`, `linux/arm64`): set the platform(s) of your nodes if your
+  Image Updater version needs it.
 
 ## Tools
 

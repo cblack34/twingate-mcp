@@ -24,7 +24,7 @@ Short ADR-style log. Newest last.
   separate setting). 401/403 are not retried and become "Token invalid or lacks permission".
 - **`get_user` not-found** returns `null` (MCP wraps it as `{"result": null}`).
 - **Allowed hosts.** Loopback binds allow `127.0.0.1`, `localhost`, and `[::1]` (any port). Other
-  binds allow only the bind host itself, so bind a specific address rather than `0.0.0.0`.
+  binds allow only the bind host itself, so bind a specific address rather than `0.0.0.0`. **[Superseded 2026-11-10: wildcard binds are supported; see "Wildcard binds" and `TWINGATE_MCP_ALLOWED_HOSTS`.]**
 - **Bearer guard** is a pure ASGI middleware (not `BaseHTTPMiddleware`) so SSE streaming is untouched;
   it uses `hmac.compare_digest`.
 - **Network-name guard** applies to remote network names too (`RemoteNetwork.name`,
@@ -44,7 +44,7 @@ Short ADR-style log. Newest last.
 - **Unknown email in `get_user_access`** is a not-found tool error, not an empty access list, so
   "no such user" isn't mistaken for "user with no access".
 - **CI** (`.github/workflows/ci.yml`) runs the §9 gates on Python 3.14; gitleaks runs from its
-  official container image. Not yet run on GitHub.
+  official container image. Not yet run on GitHub. **[Superseded 2026-11-10: CI runs on every PR and push to main.]**
 - **Wildcard binds** (`0.0.0.0`, `::`) also allow the loopback Host headers, since they serve
   loopback too. That's what makes a container's published port reachable at `localhost`.
 - **Docker image** is `python:3.14-slim-trixie` with a uv builder stage; only the non-editable
