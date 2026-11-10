@@ -77,6 +77,8 @@ are excluded from the build context.
 docker build -t twingate-mcp:local .
 ```
 
+Or pull the published image: `docker pull ghcr.io/cblack34/twingate-mcp:latest`.
+
 **stdio (Claude Desktop):** use `docker` as the command:
 
 ```json
