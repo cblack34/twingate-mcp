@@ -131,8 +131,6 @@ jobs:
       - name: Push scanned archive
         run: |
           want=sha256:$(skopeo inspect --raw oci-archive:image.tar | sha256sum | cut -d' ' -f1)
-          for tag in "sha-$GITHUB_SHA" latest; do
-            skopeo copy --all --digestfile digest --dest-creds "$GITHUB_ACTOR:$GITHUB_TOKEN" oci-archive:image.tar "docker://$IMAGE:$tag"
-            echo "$tag $(cat digest)"
-            test "$(cat digest)" = "$want"
-          done
+          skopeo copy --all --digestfile digest --dest-creds "$GITHUB_ACTOR:$GITHUB_TOKEN" oci-archive:image.tar "docker://$IMAGE:sha-$GITHUB_SHA"
+          echo "sha-$GITHUB_SHA $(cat digest)"
+          test "$(cat digest)" = "$want"

@@ -79,12 +79,16 @@ are excluded from the build context.
 docker build -t twingate-mcp:local .
 ```
 
-Or pull the published image and tag it for the examples below:
+Or pull a published image and tag it for the examples below. Every `main` build is published as
+`sha-<full commit SHA>`, and each release as its version (e.g. `0.1.0`). There is no `latest` tag.
 
 ```sh
-docker pull ghcr.io/cblack34/twingate-mcp:latest
-docker tag ghcr.io/cblack34/twingate-mcp:latest twingate-mcp:local
+docker pull ghcr.io/cblack34/twingate-mcp:0.1.0
+docker tag ghcr.io/cblack34/twingate-mcp:0.1.0 twingate-mcp:local
 ```
+
+To release, push a `vX.Y.Z` tag on a commit that `main` already published; the scanned
+`sha-<commit>` image is copied to `X.Y.Z` without a rebuild.
 
 **stdio (Claude Desktop):** use `docker` as the command:
 

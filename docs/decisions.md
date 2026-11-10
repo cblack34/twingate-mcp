@@ -49,7 +49,7 @@ Short ADR-style log. Newest last.
   loopback too. That's what makes a container's published port reachable at `localhost`.
 - **Docker image** is `python:3.14-slim-trixie` with a uv builder stage; only the non-editable
   venv is copied into the runtime stage. The default command is stdio; Compose runs HTTP.
-- **Image workflow** (`.github/workflows/image.yml`) builds the image (no push yet), smoke-tests
+- **Image workflow** (`.github/workflows/image.yml`) builds the image, smoke-tests
   it, and fails on fixable HIGH/CRITICAL findings from Trivy. All actions are pinned to commit SHAs.
   pip is removed from the runtime image because its vendored copies of urllib3 and msgpack carried
   fixable HIGH CVEs. The full Trivy report goes to code scanning as SARIF (the repo is public).
@@ -89,3 +89,5 @@ Short ADR-style log. Newest last.
   Twingate, so an upstream outage does not fail readiness and pull every pod.
 - **Metrics.** `/metrics` is unauthenticated by maintainer decision and meant for in-cluster scraping.
   Labels are fixed tool and operation names and outcomes, so no user data is exposed.
+- **Image tags.** No `latest`: deploys pin immutable tags and Argo CD Image Updater promotes them.
+  `main` publishes `sha-<commit>`; a `vX.Y.Z` git tag copies that image to `X.Y.Z` unchanged.
