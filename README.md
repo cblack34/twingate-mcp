@@ -63,8 +63,9 @@ uv run twingate-mcp serve --transport http            # 127.0.0.1:8000, endpoint
 
 Binding to anything other than a loopback address fails unless `TWINGATE_MCP_HTTP_TOKEN` is set.
 With it set, every request must send `Authorization: Bearer <token>`, except the `/healthz` and
-`/readyz` probes and `/metrics`, which are unauthenticated. DNS-rebinding protection only
-accepts `Host` headers matching the bind address.
+`/readyz` probes and `/metrics`, which are unauthenticated. DNS-rebinding protection on `/mcp`
+accepts only `Host` headers matching the bind address (plus loopback names on a `0.0.0.0` bind)
+and `TWINGATE_MCP_ALLOWED_HOSTS`.
 
 > **Security caveat:** the bearer token is a single shared secret, not user authentication. Anyone
 > holding it can read everything the Twingate API token can read. Use HTTPS in front of it (a reverse
