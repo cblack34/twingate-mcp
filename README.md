@@ -115,9 +115,9 @@ the local machine.
 
 - The image defaults to stdio, which exits immediately in a pod. Override the container args:
   `args: ["serve", "--transport", "http", "--host", "0.0.0.0"]`.
-- Set `TWINGATE_MCP_ALLOWED_HOSTS` to every name clients use. Entries match the `Host`/`Origin` header
-  exactly (a `name:*` variant for any port is added automatically); there are no wildcards or suffix
-  matches. List e.g. `twingate-mcp,twingate-mcp.<ns>,twingate-mcp.<ns>.svc,twingate-mcp.<ns>.svc.cluster.local`
+- Set `TWINGATE_MCP_ALLOWED_HOSTS` to every name clients use. Entries are bare hostnames, not URLs; they
+  match the `Host` header exactly (a `name:*` variant for any port is added automatically) and the
+  matching `http(s)://` Origins are generated. There are no wildcards or suffix matches. List e.g. `twingate-mcp,twingate-mcp.<ns>,twingate-mcp.<ns>.svc,twingate-mcp.<ns>.svc.cluster.local`
   plus any Ingress/LB host. A missing name makes `/mcp` reject requests while the probes still pass.
 - Probe with `httpGet` on port 8000: `/healthz` for liveness and `/readyz` for readiness. Both skip the
   bearer token and never call Twingate.
@@ -128,8 +128,9 @@ the local machine.
   and `stamina_retries_total` for upstream retries.
 - HTTP is stateless, so any number of replicas works without sticky sessions.
 - Route only `/mcp` through any Ingress/LB. `/healthz`, `/readyz` and `/metrics` are unauthenticated:
-  keep them in-cluster (or block them at the Ingress or with a NetworkPolicy). The bearer token is one
-  shared secret, so keep the Service internal.
+  keep them in-cluster by exposing only `/mcp` at the Ingress. A NetworkPolicy can't separate paths on
+  port 8000; use it only to limit which peers reach the pod. The bearer token is one shared secret, so
+  keep the Service internal.
 - Settings are read once at startup: rotating `TWINGATE_API_KEY` or `TWINGATE_MCP_HTTP_TOKEN` needs a pod restart.
 - Shutdown: a tool call can run up to `TWINGATE_CALL_TIMEOUT_SECONDS` (50s), but uvicorn waits only 20s
   after SIGTERM and `/readyz` keeps returning 200 meanwhile. Add a ~5s `preStop` sleep so the pod leaves
