@@ -15,7 +15,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import ValidationError
 
 from twingate_mcp import __version__, reader
-from twingate_mcp.server import build_server, http_app, is_loopback
+from twingate_mcp.server import build_server, demote_public_access_logs, http_app, is_loopback
 from twingate_mcp.settings import Settings, describe_errors
 
 SCHEMA_PATH = Path("schema/twingate.graphql")
@@ -63,7 +63,14 @@ def serve(
         anyio.run(_stdio, server, twingate)
         return
     app = http_app(server, settings, host, on_shutdown=twingate.aclose)
-    config = uvicorn.Config(app, host=host, port=port, timeout_graceful_shutdown=20)
+    config = uvicorn.Config(
+        app,
+        host=host,
+        port=port,
+        timeout_graceful_shutdown=20,
+        log_level=settings.log_level.lower(),
+    )
+    logging.getLogger("uvicorn.access").addFilter(demote_public_access_logs)
     anyio.run(uvicorn.Server(config).serve)
 
 

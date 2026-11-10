@@ -1,5 +1,6 @@
 import hmac
 import ipaddress
+import logging
 import time
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
@@ -159,6 +160,14 @@ def is_loopback(host: str) -> bool:
 
 
 PUBLIC_PATHS = frozenset({"/healthz", "/readyz", "/metrics"})
+
+
+def demote_public_access_logs(record: logging.LogRecord) -> bool:
+    args = record.args
+    if isinstance(args, tuple) and str(args[2]).partition("?")[0] in PUBLIC_PATHS:
+        record.levelno, record.levelname = logging.DEBUG, "DEBUG"
+        return logging.getLogger(record.name).isEnabledFor(logging.DEBUG)
+    return True
 
 
 class BearerTokenMiddleware:

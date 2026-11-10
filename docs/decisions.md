@@ -91,3 +91,5 @@ Short ADR-style log. Newest last.
   Labels are fixed tool and operation names and outcomes, so no user data is exposed.
 - **Image tags.** No `latest`: deploys pin immutable tags and Argo CD Image Updater promotes them.
   `main` publishes `sha-<commit>`; a `vX.Y.Z` git tag copies that image to `X.Y.Z` unchanged.
+- **Probe access logs.** uvicorn access lines for `/healthz`, `/readyz` and `/metrics` are logged at DEBUG, so kubelet probes and
+  scrapes stay out of the default INFO output. `TWINGATE_LOG_LEVEL=DEBUG` brings them back.
