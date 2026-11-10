@@ -33,7 +33,10 @@ LABEL org.opencontainers.image.title="twingate-mcp" \
       org.opencontainers.image.licenses="MIT"
 
 # pip is unused at runtime and its vendored deps (urllib3, msgpack, ...) carry CVEs.
-RUN python -m pip uninstall --yes --quiet pip \
+RUN apt-get update \
+ && apt-get upgrade --yes --no-install-recommends \
+ && rm -rf /var/lib/apt/lists/* \
+ && python -m pip uninstall --yes --quiet pip \
  && groupadd --system --gid 10001 app \
  && useradd --system --uid 10001 --gid app --no-create-home --shell /usr/sbin/nologin app
 
