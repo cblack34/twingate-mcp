@@ -1,0 +1,27 @@
+name: release
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      packages: write
+    env:
+      IMAGE: ghcr.io/cblack34/twingate-mcp
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Copy the scanned main image to the release tag
+        run: |
+          creds="$GITHUB_ACTOR:$GITHUB_TOKEN"
+          src="docker://$IMAGE:sha-$GITHUB_SHA"
+          want=$(skopeo inspect --raw --creds "$creds" "$src" | sha256sum | cut -d' ' -f1)
+          skopeo copy --all --digestfile digest --src-creds "$creds" --dest-creds "$creds" "$src" "docker://$IMAGE:${GITHUB_REF_NAME#v}"
+          echo "${GITHUB_REF_NAME#v} $(cat digest)"
+          test "$(cat digest)" = "sha256:$want"
