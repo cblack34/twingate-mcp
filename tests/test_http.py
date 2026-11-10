@@ -36,6 +36,26 @@ async def test_bearer_middleware(header: str | None, status: int) -> None:
 
 
 @pytest.mark.anyio
+async def test_bearer_middleware_strips_token_whitespace() -> None:
+    app = BearerTokenMiddleware(ok_app, SecretStr("shared-secret\n"))
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url="http://t") as c:
+        response = await c.get("/mcp", headers={"Authorization": "Bearer shared-secret"})
+    assert response.status_code == 200
+
+
+def test_http_app_is_stateless(settings: Settings) -> None:
+    app = http_app(build_server(settings, FakeTwingateReader), settings, "127.0.0.1")
+    headers = {
+        "Host": "localhost:8000",
+        "Accept": "application/json, text/event-stream",
+    }
+    body = {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
+    with TestClient(app) as client:
+        response = client.post("/mcp", json=body, headers=headers)
+    assert response.status_code == 200
+
+
+@pytest.mark.anyio
 async def test_http_app_requires_token_when_set(settings: Settings) -> None:
     settings.mcp_http_token = SecretStr("shared-secret")
     app = http_app(build_server(settings, FakeTwingateReader), settings, "127.0.0.1")

@@ -136,7 +136,7 @@ class BearerTokenMiddleware:
 
     def __init__(self, app: ASGIApp, token: SecretStr) -> None:
         self.app = app
-        self.expected = token.get_secret_value().encode()
+        self.expected = token.get_secret_value().strip().encode()
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] == "http":
@@ -173,7 +173,7 @@ def http_app(server: MCPServer, settings: Settings, host: str) -> ASGIApp:
             for port in ("", ":*")
         ],
     )
-    app = server.streamable_http_app(transport_security=security, host=host)
+    app = server.streamable_http_app(transport_security=security, host=host, stateless_http=True)
     if settings.mcp_http_token is not None:
         app.add_middleware(BearerTokenMiddleware, token=settings.mcp_http_token)
     return app
