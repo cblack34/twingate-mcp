@@ -8,7 +8,6 @@ updates:
       python:
         patterns: ["*"]
 
-  # Keeps the SHA-pinned actions current (Dependabot updates the SHA and the version comment).
   - package-ecosystem: github-actions
     directory: /
     schedule:
