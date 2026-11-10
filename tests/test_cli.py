@@ -115,11 +115,19 @@ def test_schema_pull_401_is_clear(env: None, no_real_http: respx.MockRouter) -> 
     assert FAKE_ENV["TWINGATE_API_KEY"] not in result.output
 
 
-def test_empty_http_token_rejected(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("TWINGATE_MCP_HTTP_TOKEN", "")
+@pytest.mark.parametrize("token", ["", " \n"])
+def test_empty_http_token_rejected(env: None, monkeypatch: pytest.MonkeyPatch, token: str) -> None:
+    monkeypatch.setenv("TWINGATE_MCP_HTTP_TOKEN", token)
     result = runner.invoke(app, ["serve", "--transport", "http", "--host", "0.0.0.0"])
     assert result.exit_code == 1
     assert "TWINGATE_MCP_HTTP_TOKEN" in result.output
+
+
+def test_http_token_whitespace_stripped(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TWINGATE_MCP_HTTP_TOKEN", "shared-secret\n")
+    settings = Settings()  # pyright: ignore[reportCallIssue]
+    assert settings.mcp_http_token is not None
+    assert settings.mcp_http_token.get_secret_value() == "shared-secret"
 
 
 @pytest.mark.parametrize("network", ["example.net/", "collector.example.com/#", "a@b"])

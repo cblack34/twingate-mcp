@@ -136,7 +136,7 @@ class BearerTokenMiddleware:
 
     def __init__(self, app: ASGIApp, token: SecretStr) -> None:
         self.app = app
-        self.expected = token.get_secret_value().strip().encode()
+        self.expected = token.get_secret_value().encode()
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] == "http":

@@ -25,6 +25,11 @@ class Settings(BaseSettings):
             return [h.strip() for h in value.split(",") if h.strip()]
         return value
 
+    @field_validator("mcp_http_token", mode="before")
+    @classmethod
+    def _strip_token(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
     @field_validator("log_level", mode="before")
     @classmethod
     def _upper_level(cls, value: object) -> object:

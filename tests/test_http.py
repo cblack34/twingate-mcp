@@ -35,14 +35,6 @@ async def test_bearer_middleware(header: str | None, status: int) -> None:
     assert response.status_code == status
 
 
-@pytest.mark.anyio
-async def test_bearer_middleware_strips_token_whitespace() -> None:
-    app = BearerTokenMiddleware(ok_app, SecretStr("shared-secret\n"))
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url="http://t") as c:
-        response = await c.get("/mcp", headers={"Authorization": "Bearer shared-secret"})
-    assert response.status_code == 200
-
-
 def test_http_app_is_stateless(settings: Settings) -> None:
     app = http_app(build_server(settings, FakeTwingateReader), settings, "127.0.0.1")
     headers = {
