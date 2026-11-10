@@ -14,7 +14,6 @@ ENV UV_COMPILE_BYTECODE=1 \
     UV_PROJECT_ENVIRONMENT=/app/.venv
 WORKDIR /app
 
-# Dependencies first so this layer is cached until uv.lock changes.
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
@@ -32,7 +31,6 @@ LABEL org.opencontainers.image.title="twingate-mcp" \
       org.opencontainers.image.description="Read-only MCP server for the Twingate GraphQL Admin API" \
       org.opencontainers.image.licenses="MIT"
 
-# pip is unused at runtime and its vendored deps (urllib3, msgpack, ...) carry CVEs.
 RUN apt-get update \
  && apt-get upgrade --yes --no-install-recommends \
  && rm -rf /var/lib/apt/lists/* \
@@ -47,7 +45,7 @@ ENV PATH="/app/.venv/bin:${PATH}" \
     PYTHONDONTWRITEBYTECODE=1
 
 WORKDIR /app
-USER app:app
+USER 10001:10001
 EXPOSE 8000
 
 ENTRYPOINT ["twingate-mcp"]
