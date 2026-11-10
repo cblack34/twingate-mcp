@@ -62,7 +62,8 @@ uv run twingate-mcp serve --transport http            # 127.0.0.1:8000, endpoint
 ```
 
 Binding to anything other than a loopback address fails unless `TWINGATE_MCP_HTTP_TOKEN` is set.
-With it set, every request must send `Authorization: Bearer <token>`. DNS-rebinding protection only
+With it set, every request must send `Authorization: Bearer <token>`, except the `/healthz` and
+`/readyz` probes, which are unauthenticated. DNS-rebinding protection only
 accepts `Host` headers matching the bind address.
 
 > **Security caveat:** the bearer token is a single shared secret, not user authentication. Anyone
@@ -111,7 +112,8 @@ the local machine.
   `args: ["serve", "--transport", "http", "--host", "0.0.0.0"]`.
 - Set `TWINGATE_MCP_ALLOWED_HOSTS` to every hostname clients use, such as the Service DNS name
   (`twingate-mcp.<namespace>.svc.cluster.local`) and any Ingress host. Other `Host` headers are rejected.
-- Every HTTP path requires the bearer token, so use a `tcpSocket` probe on port 8000, not `httpGet`.
+- Probe with `httpGet` on port 8000: `/healthz` for liveness and `/readyz` for readiness. Both skip the
+  bearer token and never call Twingate.
 - HTTP is stateless, so any number of replicas works without sticky sessions.
 
 ## Tools

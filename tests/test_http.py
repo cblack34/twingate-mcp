@@ -59,6 +59,28 @@ async def test_http_app_requires_token_when_set(settings: Settings) -> None:
 
 
 @pytest.mark.parametrize(
+    ("bind", "host_header"),
+    [("127.0.0.1", "127.0.0.1:8000"), ("0.0.0.0", "10.1.2.3:8000")],
+)
+@pytest.mark.parametrize("path", ["/healthz", "/readyz"])
+def test_probes_skip_token(settings: Settings, path: str, bind: str, host_header: str) -> None:
+    settings.mcp_http_token = SecretStr("shared-secret")
+    app = http_app(build_server(settings, FakeTwingateReader), settings, bind)
+    with TestClient(app) as client:
+        response = client.get(path, headers={"Host": host_header})
+    assert (response.status_code, response.text) == (200, "ok")
+
+
+@pytest.mark.parametrize("path", ["/mcp", "/healthzx", "/healthz/", "/readyz/x"])
+def test_non_probe_paths_still_need_token(settings: Settings, path: str) -> None:
+    settings.mcp_http_token = SecretStr("shared-secret")
+    app = http_app(build_server(settings, FakeTwingateReader), settings, "127.0.0.1")
+    with TestClient(app) as client:
+        response = client.get(path, headers={"Host": "127.0.0.1:8000"})
+    assert response.status_code == 401
+
+
+@pytest.mark.parametrize(
     ("host", "expected"),
     [
         ("127.0.0.1", True),

@@ -85,3 +85,5 @@ Short ADR-style log. Newest last.
   `serve` closes the reader's HTTP client on exit: in the app lifespan for HTTP, because uvicorn
   re-raises SIGTERM after shutdown, and in a `finally` for stdio. Uvicorn waits at most 20s for open
   requests, under the default 30s `terminationGracePeriodSeconds`.
+- **Health endpoints.** `/healthz` and `/readyz` return 200 without the bearer token and never call
+  Twingate, so an upstream outage does not fail readiness and pull every pod.
